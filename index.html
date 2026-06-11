@@ -1021,8 +1021,8 @@
     <div class="dv-summary" style="padding:16px 16px 0">
       <div class="dv-card">
         <div class="dv-label">확정 용돈 (누적)</div>
-        <div class="dv-val" id="dv-total">₩0</div>
-        <div class="dv-sub" id="dv-month-total-sub" style="margin-top:5px; font-size:11px; color:var(--t3)">이번달 ₩0</div>
+        <div class="dv-val" id="dv-total">0원</div>
+        <div class="dv-sub" id="dv-month-total-sub" style="margin-top:5px; font-size:11px; color:var(--t3)">이번달 0원</div>
       </div>
       <div class="dv-card">
         <div class="dv-label">대기중</div>
@@ -1032,7 +1032,7 @@
         <div class="dv-label" style="margin-bottom:8px">🐕 마지막 수령 이후 산책</div>
         <div style="display:flex; align-items:baseline; gap:6px; flex-wrap:wrap">
           <span style="font-size:20px; font-weight:800; color:var(--t1); letter-spacing:-0.5px" id="dv-cur-walk">0회</span>
-          <span style="font-size:15px; font-weight:700; color:var(--accent)" id="dv-cur-walk-money">₩0</span>
+          <span style="font-size:15px; font-weight:700; color:var(--accent)" id="dv-cur-walk-money">0원</span>
         </div>
         <div class="dv-sub" id="dv-cur-since" style="margin-top:6px">수령 이후</div>
       </div>
@@ -1040,7 +1040,7 @@
         <div class="dv-label" style="margin-bottom:8px">🧹 마지막 수령 이후 청소</div>
         <div style="display:flex; align-items:baseline; gap:6px; flex-wrap:wrap">
           <span style="font-size:20px; font-weight:800; color:var(--t1); letter-spacing:-0.5px" id="dv-cur-clean">0회</span>
-          <span style="font-size:15px; font-weight:700; color:var(--accent)" id="dv-cur-clean-money">₩0</span>
+          <span style="font-size:15px; font-weight:700; color:var(--accent)" id="dv-cur-clean-money">0원</span>
         </div>
       </div>
       <div id="dv-cur-custom" style="display:contents"></div>
@@ -1082,8 +1082,8 @@
     <div class="dv-month-grid">
       <div class="dv-month-card">
         <div class="dm-label">💰 이번달 확정 총액</div>
-        <div class="dm-val" id="dv-month-money">₩0</div>
-        <div class="dm-sub" id="dv-month-pending">확인 대기중 ₩0</div>
+        <div class="dm-val" id="dv-month-money">0원</div>
+        <div class="dm-sub" id="dv-month-pending">확인 대기중 0원</div>
       </div>
       <div class="dv-month-card">
         <div class="dm-label">🐕 산책</div>
@@ -1662,7 +1662,7 @@ function formatDate(iso) {
   return `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
 }
 
-function formatMoney(n) { return '₩' + Number(n).toLocaleString(); }
+function formatMoney(n) { return Number(n).toLocaleString() + '원'; }
 
 // ── UI 렌더 ──
 function render() {
@@ -1672,13 +1672,13 @@ function render() {
 
   // 산책 통계
   const walkAll      = records.filter(r => r.task_name === 'walk' && r.created_at.startsWith(monthStr));
-  const walkApproved = walkAll.filter(r => r.status === 'approved' || r.status === 'paid');
+  const walkApproved = walkAll.filter(r => r.status === 'approved');
   document.getElementById('walk-earned').textContent = formatMoney(walkApproved.reduce((s,r)=>s+r.amount,0));
   document.getElementById('walk-count').textContent  = `이번달 ${walkAll.length}회 완료 · 확정 ${walkApproved.length}회`;
 
   // 청소 통계
   const cleanAll      = records.filter(r => r.task_name.startsWith('clean') && r.created_at.slice(0,10) >= week);
-  const cleanApproved = cleanAll.filter(r => r.status === 'approved' || r.status === 'paid');
+  const cleanApproved = cleanAll.filter(r => r.status === 'approved');
   const cleanCount    = cleanApproved.reduce((s, r) => s + parseInt(r.task_name.split(':')[1] || '1'), 0);
   document.getElementById('clean-earned').textContent = formatMoney(cleanApproved.reduce((s,r)=>s+r.amount,0));
   document.getElementById('clean-count').textContent  = `이번주 ${cleanAll.length}회 완료 · 확정 ${cleanCount}개`;
@@ -1980,7 +1980,7 @@ function renderCustomCards(monthStr) {
 
   container.innerHTML = items.map(it => {
     const all      = records.filter(r => r.task_name.startsWith(`custom|${it.id}|`) && r.created_at.startsWith(monthStr));
-    const approved = all.filter(r => r.status === 'approved' || r.status === 'paid');
+    const approved = all.filter(r => r.status === 'approved');
     const earned   = approved.reduce((s, r) => s + r.amount, 0);
     const actionLabel = it.mode === 'count' ? `${it.name} 완료!` : `${it.name} 완료!`;
     return `
@@ -2270,7 +2270,7 @@ function renderStats() {
           const v = ds.data[idx];
           if (!v) return;
           ctx.fillStyle = chartLabel; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
-          const label = v >= 10000 ? '₩' + Math.round(v/10000) + '만' : '₩' + v.toLocaleString();
+          const label = v >= 10000 ? Math.round(v/10000) + '만원' : v.toLocaleString() + '원';
           ctx.fillText(label, bar.x, bar.y - 4);
         });
       });
@@ -2296,10 +2296,10 @@ function renderStats() {
       layout: { padding: { top: 18 } },
       plugins: {
         legend: { display: false },
-        tooltip: { callbacks: { label: ctx => '₩' + ctx.raw.toLocaleString() } }
+        tooltip: { callbacks: { label: ctx => ctx.raw.toLocaleString() + '원' } }
       },
       scales: {
-        y: { display: false, min: 0 },
+        y: { display: false, min: 0, suggestedMax: Math.max(...monthMoney, 10000) * 1.4 },
         x: { grid: { display: false }, ticks: { color: chartAxis, font: { size: 11 } }, border: { display: true, color: chartBorder } }
       }
     }
@@ -2343,7 +2343,7 @@ function renderStats() {
       layout: { padding: { top: 20 } },
       plugins: { legend: { position: 'bottom', labels: { font: { size: 12 }, padding: 12, color: chartLabel } } },
       scales: {
-        y: { display: false, beginAtZero: true },
+        y: { display: false, beginAtZero: true, suggestedMax: Math.max(...monthWalks, ...monthCleans, ...monthCustom.flat(), 2) * 1.6 },
         x: { grid: { display: false }, ticks: { color: chartAxis, font: { size: 11 } }, border: { display: true, color: chartBorder } }
       }
     }
@@ -2504,13 +2504,13 @@ async function loadDadView() {
   const approved = recs.filter(r => r.status === 'approved' || r.status === 'paid');
   const pending  = recs.filter(r => r.status === 'pending');
 
-  document.getElementById('dv-total').textContent         = '₩' + approved.reduce((s,r)=>s+r.amount,0).toLocaleString();
+  document.getElementById('dv-total').textContent         = approved.reduce((s,r)=>s+r.amount,0).toLocaleString() + '원';
   document.getElementById('dv-pending-count').textContent = pending.length + '건';
   // 이번달 확정 금액 (누적 카드 sub 텍스트)
   const _nowYM = new Date().toISOString().slice(0,7);
   const _monthApproved = recs.filter(r => (r.status==='approved'||r.status==='paid') && r.created_at.startsWith(_nowYM));
   const _monthTotalEl = document.getElementById('dv-month-total-sub');
-  if (_monthTotalEl) _monthTotalEl.textContent = '이번달 ₩' + _monthApproved.reduce((s,r)=>s+r.amount,0).toLocaleString();
+  if (_monthTotalEl) _monthTotalEl.textContent = '이번달 ' + _monthApproved.reduce((s,r)=>s+r.amount,0).toLocaleString() + '원';
 
   // 이번 회차: 마지막 수령(paid) 이후 산책/청소 횟수
   const paidRecs  = recs.filter(r => r.status === 'paid').sort((a,b) => b.created_at.localeCompare(a.created_at));
@@ -2520,9 +2520,9 @@ async function loadDadView() {
   const curWalkRecs  = sinceRecs.filter(r => r.task_name === 'walk');
   const curCleanRecs = sinceRecs.filter(r => r.task_name.startsWith('clean'));
   document.getElementById('dv-cur-walk').textContent        = curWalkRecs.length + '회';
-  document.getElementById('dv-cur-walk-money').textContent  = '₩' + curWalkRecs.reduce((s,r)=>s+r.amount,0).toLocaleString();
+  document.getElementById('dv-cur-walk-money').textContent  = curWalkRecs.reduce((s,r)=>s+r.amount,0).toLocaleString() + '원';
   document.getElementById('dv-cur-clean').textContent       = curCleanRecs.length + '회';
-  document.getElementById('dv-cur-clean-money').textContent = '₩' + curCleanRecs.reduce((s,r)=>s+r.amount,0).toLocaleString();
+  document.getElementById('dv-cur-clean-money').textContent = curCleanRecs.reduce((s,r)=>s+r.amount,0).toLocaleString() + '원';
   if (lastPaid) {
     const d = new Date(lastPaid.created_at);
     document.getElementById('dv-cur-since').textContent = `${d.getMonth()+1}/${d.getDate()} 수령 이후`;
@@ -2539,7 +2539,7 @@ async function loadDadView() {
       <div class="dv-label" style="margin-bottom:8px">${ct.icon} 마지막 수령 이후 ${ct.name}</div>
       <div style="display:flex; align-items:baseline; gap:6px; flex-wrap:wrap">
         <span style="font-size:20px; font-weight:800; color:var(--t1); letter-spacing:-0.5px">${ctRecs.length}회</span>
-        <span style="font-size:15px; font-weight:700; color:#05D194">₩${money.toLocaleString()}</span>
+        <span style="font-size:15px; font-weight:700; color:#05D194">${money.toLocaleString()}원</span>
       </div>
     </div>`;
   }).join('');
@@ -2566,7 +2566,7 @@ async function loadDadView() {
           <a class="dv-confirm-link" href="${APP_URL}?confirm=${r.id}">확인/취소 하기 →</a>
         </div>
         <div style="text-align:right">
-          <div class="dv-money" style="color:#f59e0b">₩${r.amount.toLocaleString()}</div>
+          <div class="dv-money" style="color:#f59e0b">${r.amount.toLocaleString()}원</div>
         </div>
       </div>`).join('');
 
@@ -2582,7 +2582,7 @@ async function loadDadView() {
           ${r.cancel_reason ? `<div class="dv-reason">사유: ${r.cancel_reason}</div>` : ''}
         </div>
         <div style="text-align:right">
-          <div class="dv-money" style="color:${statusColor[r.status]}">₩${r.amount.toLocaleString()}</div>
+          <div class="dv-money" style="color:${statusColor[r.status]}">${r.amount.toLocaleString()}원</div>
           <div style="font-size:10px; color:#9ca3af; margin-top:3px">${statusLabel[r.status]}</div>
         </div>
       </div>`).join('');
@@ -2612,8 +2612,8 @@ function renderDadStats(recs) {
   const mPending  = monthRecs.filter(r => r.status==='pending');
   const mWalks    = monthRecs.filter(r => r.task_name==='walk');
   const mCleans   = monthRecs.filter(r => r.task_name.startsWith('clean'));
-  document.getElementById('dv-month-money').textContent   = '₩' + mApproved.reduce((s,r)=>s+r.amount,0).toLocaleString();
-  document.getElementById('dv-month-pending').textContent = '확인 대기중 ₩' + mPending.reduce((s,r)=>s+r.amount,0).toLocaleString();
+  document.getElementById('dv-month-money').textContent   = mApproved.reduce((s,r)=>s+r.amount,0).toLocaleString() + '원';
+  document.getElementById('dv-month-pending').textContent = '확인 대기중 ' + mPending.reduce((s,r)=>s+r.amount,0).toLocaleString() + '원';
   document.getElementById('dv-month-walk').textContent    = mWalks.length + '회';
   document.getElementById('dv-month-clean').textContent   = '청소 ' + mCleans.length + '회';
   document.getElementById('dv-month-custom').innerHTML = customTypes.map(ct => {
@@ -2623,7 +2623,7 @@ function renderDadStats(recs) {
       <div class="dv-month-card">
         <div class="dm-label">${ct.icon} ${ct.name}</div>
         <div class="dm-val">${cnt}회</div>
-        <div class="dm-sub">확정 ₩${earned.toLocaleString()}</div>
+        <div class="dm-sub">확정 ${earned.toLocaleString()}원</div>
       </div>`;
   }).join('');
 
@@ -2659,7 +2659,7 @@ function renderDadStats(recs) {
           const v = ds.data[idx];
           if (!v) return;
           ctx.fillStyle = dvChartLabel; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
-          const label = v >= 10000 ? '₩' + Math.round(v/10000) + '만' : '₩' + v.toLocaleString();
+          const label = v >= 10000 ? Math.round(v/10000) + '만원' : v.toLocaleString() + '원';
           ctx.fillText(label, bar.x, bar.y - 4);
         });
       });
@@ -2677,9 +2677,9 @@ function renderDadStats(recs) {
     options: {
       responsive: true,
       layout: { padding: { top: 18 } },
-      plugins: { legend:{display:false}, tooltip:{callbacks:{label:ctx=>'₩'+ctx.raw.toLocaleString()}} },
+      plugins: { legend:{display:false}, tooltip:{callbacks:{label:ctx=>ctx.raw.toLocaleString()+'원'}} },
       scales: {
-        y: { display: false, min: 0 },
+        y: { display: false, min: 0, suggestedMax: Math.max(...monthMoney, 10000) * 1.4 },
         x: { grid:{display:false}, ticks:{color:dvChartAxis, font:{size:11}}, border:{display:true, color:dvChartBorder} }
       }
     }
@@ -2717,7 +2717,7 @@ function renderDadStats(recs) {
       layout: { padding: { top: 18 } },
       plugins: { legend:{position:'bottom',labels:{font:{size:11},padding:10,color:dvChartLabel}} },
       scales: {
-        y: { display: false, beginAtZero: true },
+        y: { display: false, beginAtZero: true, suggestedMax: Math.max(...monthWalks, ...monthCleans, ...monthCustom.flat(), 2) * 1.6 },
         x: { grid:{display:false}, ticks:{color:dvChartAxis, font:{size:11}}, border:{display:true, color:dvChartBorder} }
       }
     }
@@ -2943,7 +2943,7 @@ function renderWeekCompare() {
     const d = cur - prev;
     if (d === 0) return '<div class="wc-diff wc-same">— 동일</div>';
     const sign = d > 0 ? '+' : '';
-    const val  = isM ? sign + '₩' + Math.abs(d).toLocaleString() : sign + d;
+    const val  = isM ? sign + Math.abs(d).toLocaleString() + '원' : sign + d;
     return `<div class="wc-diff ${d > 0 ? 'wc-up' : 'wc-down'}">${val}</div>`;
   }
 
