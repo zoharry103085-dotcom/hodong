@@ -2770,7 +2770,7 @@ function savePrices() {
 
 // ── 아빠 링크 복사 ──
 function copyDadLink() {
-  const link = APP_URL + '?dadview=true';
+  const link = APP_URL + '/dad.html';
   navigator.clipboard.writeText(link).then(() => showToast('📋 아빠 링크 복사됐어요!')).catch(() => {
     prompt('아래 링크를 복사하세요:', link);
   });
