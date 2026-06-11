@@ -1502,7 +1502,7 @@ let dadTargetId = null; // 아빠 확인 페이지에서 사용할 record id
 // ══════════════════════════════════════════
 const urlParams = new URLSearchParams(window.location.search);
 const confirmId = urlParams.get('confirm');
-const dadView   = urlParams.get('dadview');
+const dadView   = urlParams.get('dadview') || localStorage.getItem('hodong_dad') === '1';
 
 if (confirmId) {
   // 아빠 개별 확인 페이지
