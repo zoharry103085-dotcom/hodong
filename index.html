@@ -1297,9 +1297,9 @@
     <div class="settings-card">
       <div class="section-title"><span class="s-icon" style="background:#E6FBF3">💰</span>용돈 금액 설정</div>
       <label>🐕 산책 1회 금액</label>
-      <input type="text" id="walk-price" placeholder="20,000원" oninput="formatInputMoney(this)" />
+      <input type="text" id="walk-price" placeholder="20,000원" onfocus="focusMoneyInput(this)" onblur="blurMoneyInput(this)" />
       <label style="margin-top:12px; display:block">🧹 화장실 청소 1회당 금액</label>
-      <input type="text" id="clean-price" placeholder="50,000원" oninput="formatInputMoney(this)" />
+      <input type="text" id="clean-price" placeholder="50,000원" onfocus="focusMoneyInput(this)" onblur="blurMoneyInput(this)" />
       <button class="save-btn" onclick="savePrices()">금액 저장</button>
     </div>
 
@@ -1418,7 +1418,7 @@
     <label style="font-size:12px; color:var(--t2); font-weight:600; display:block; margin-top:12px">활동 이름</label>
     <input class="amount-input" type="text" id="ci-name" placeholder="예: 설거지" />
     <label style="font-size:12px; color:var(--t2); font-weight:600; display:block; margin-top:12px">완료 1회당 금액</label>
-    <input class="amount-input" type="text" id="ci-amount" placeholder="10,000원" oninput="formatInputMoney(this)" />
+    <input class="amount-input" type="text" id="ci-amount" placeholder="10,000원" onfocus="focusMoneyInput(this)" onblur="blurMoneyInput(this)" />
     <label style="font-size:12px; color:var(--t2); font-weight:600; display:block; margin-top:12px">완료 방식</label>
     <div style="display:flex; gap:8px; margin-top:6px">
       <label style="flex:1; display:flex; align-items:center; gap:6px; padding:10px; border:1px solid var(--border2); border-radius:10px; font-size:13px; font-weight:600; color:var(--t2); cursor:pointer">
@@ -2816,7 +2816,12 @@ function deleteCustomItem() {
 }
 
 // ── 입력란 금액 포맷팅 ──
-function formatInputMoney(input) {
+function focusMoneyInput(input) {
+  // 포커스 시: 숫자만 남겨서 편집 가능하게
+  input.value = input.value.replace(/[^0-9]/g, '');
+}
+function blurMoneyInput(input) {
+  // 포커스 해제 시: 콤마 + 원 포맷 적용
   const digits = input.value.replace(/[^0-9]/g, '');
   input.value = digits ? Number(digits).toLocaleString() + '원' : '';
 }
