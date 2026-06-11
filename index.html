@@ -4,6 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>호동이 프로젝트 💰</title>
+  <!-- PWA -->
+  <link rel="manifest" href="/hodong/manifest.json">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="호동이">
+  <meta name="theme-color" content="#05D194">
   <style>
   @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
   :root {
@@ -805,7 +812,7 @@
   .dv-today-item { background: var(--bg2); border: 1px solid var(--border); border-radius: 16px; padding: 14px; text-align: center; box-shadow: var(--shadow); }
   .dv-today-item .dt-icon  { font-size: 22px; margin-bottom: 6px; }
   .dv-today-item .dt-label { font-size: 10px; color: var(--t3); margin-bottom: 3px; font-weight: 500; }
-  .dv-today-item .dt-val   { font-size: 20px; font-weight: 800; color: var(--accent); }
+  .dv-today-item .dt-val   { font-size: 20px; font-weight: 800; color: var(--t1); }
   .dv-month-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 16px; margin-bottom: 12px; }
   .dv-month-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 16px; padding: 14px; box-shadow: var(--shadow); }
   .dv-month-card .dm-label { font-size: 10px; color: var(--t3); margin-bottom: 4px; font-weight: 600; }
