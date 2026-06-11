@@ -546,11 +546,11 @@
   .wc-title { font-size: 11px; font-weight: 600; color: var(--t3); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 12px; }
   .wc-grid  { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
   .wc-item  { text-align: center; }
-  .wc-label { font-size: 10px; color: var(--t3); margin-bottom: 6px; }
+  .wc-label { font-size: 11px; color: var(--t2); margin-bottom: 6px; font-weight: 600; }
   .wc-row   { display: flex; justify-content: center; align-items: baseline; gap: 6px; }
-  .wc-this  { font-size: 18px; font-weight: 800; color: var(--t1); }
+  .wc-this  { font-size: 20px; font-weight: 800; color: var(--t1); }
   .wc-last  { font-size: 12px; color: var(--t3); text-decoration: line-through; }
-  .wc-diff  { font-size: 11px; font-weight: 700; margin-top: 3px; }
+  .wc-diff  { font-size: 12px; font-weight: 700; margin-top: 3px; }
   .wc-up    { color: var(--green); }
   .wc-down  { color: var(--red); }
   .wc-same  { color: var(--t3); }
@@ -1022,13 +1022,14 @@
       <div class="dv-card">
         <div class="dv-label">확정 용돈 (누적)</div>
         <div class="dv-val" id="dv-total">₩0</div>
+        <div class="dv-sub" id="dv-month-total-sub" style="margin-top:5px; font-size:11px; color:var(--t3)">이번달 ₩0</div>
       </div>
       <div class="dv-card">
         <div class="dv-label">대기중</div>
         <div class="dv-val" id="dv-pending-count">0건</div>
       </div>
       <div class="dv-card" style="text-align:left">
-        <div class="dv-label" style="margin-bottom:8px">🐕 이번 회차 산책</div>
+        <div class="dv-label" style="margin-bottom:8px">🐕 마지막 수령 이후 산책</div>
         <div style="display:flex; align-items:baseline; gap:6px; flex-wrap:wrap">
           <span style="font-size:20px; font-weight:800; color:var(--t1); letter-spacing:-0.5px" id="dv-cur-walk">0회</span>
           <span style="font-size:15px; font-weight:700; color:var(--accent)" id="dv-cur-walk-money">₩0</span>
@@ -1036,7 +1037,7 @@
         <div class="dv-sub" id="dv-cur-since" style="margin-top:6px">수령 이후</div>
       </div>
       <div class="dv-card" style="text-align:left">
-        <div class="dv-label" style="margin-bottom:8px">🧹 이번 회차 청소</div>
+        <div class="dv-label" style="margin-bottom:8px">🧹 마지막 수령 이후 청소</div>
         <div style="display:flex; align-items:baseline; gap:6px; flex-wrap:wrap">
           <span style="font-size:20px; font-weight:800; color:var(--t1); letter-spacing:-0.5px" id="dv-cur-clean">0회</span>
           <span style="font-size:15px; font-weight:700; color:var(--accent)" id="dv-cur-clean-money">₩0</span>
@@ -1118,7 +1119,7 @@
       <p id="header-date">오늘도 열심히!</p>
     </div>
     <div class="total-money">
-      <div class="label">확정 금액</div>
+      <div class="label">미수령 금액</div>
       <div class="amount" id="total-amount">₩0</div>
       <div class="pending-row">
         <span class="pending-label">대기중</span>
@@ -1660,14 +1661,14 @@ function render() {
   const walkAll      = records.filter(r => r.task_name === 'walk' && r.created_at.startsWith(monthStr));
   const walkApproved = walkAll.filter(r => r.status === 'approved');
   document.getElementById('walk-earned').textContent = formatMoney(walkApproved.length * 20000);
-  document.getElementById('walk-count').textContent  = `이번달 ${walkAll.length}회 (확정 ${walkApproved.length}회)`;
+  document.getElementById('walk-count').textContent  = `${walkAll.length}회 완료 · 확정 ${walkApproved.length}회`;
 
   // 청소 통계
   const cleanAll      = records.filter(r => r.task_name.startsWith('clean') && r.created_at.slice(0,10) >= week);
   const cleanApproved = cleanAll.filter(r => r.status === 'approved');
   const cleanCount    = cleanApproved.reduce((s, r) => s + parseInt(r.task_name.split(':')[1] || '1'), 0);
   document.getElementById('clean-earned').textContent = formatMoney(cleanCount * 50000);
-  document.getElementById('clean-count').textContent  = `이번주 ${cleanAll.length}회 (확정 ${cleanCount}개)`;
+  document.getElementById('clean-count').textContent  = `${cleanAll.length}회 완료 · 확정 ${cleanCount}개`;
 
   // 커스텀 활동 카드
   renderCustomCards(monthStr);
@@ -1679,7 +1680,12 @@ function render() {
   document.getElementById('pending-amount').textContent = formatMoney(totalPending);
   // 용돈 받음 버튼: approved 있을 때만 활성화
   const receiveBtn = document.getElementById('receive-btn');
-  if (receiveBtn) receiveBtn.disabled = totalApproved === 0;
+  if (receiveBtn) {
+    receiveBtn.disabled = totalApproved === 0;
+    receiveBtn.innerHTML = totalApproved > 0
+      ? `💸 이번달 용돈 수령 · ${formatMoney(totalApproved)}`
+      : '💸 이번달 용돈 수령';
+  }
   // 대기중 뱃지
   const badge = document.getElementById('tab-badge');
   const pendingCount = records.filter(r => r.status === 'pending').length;
@@ -2473,6 +2479,11 @@ async function loadDadView() {
 
   document.getElementById('dv-total').textContent         = '₩' + approved.reduce((s,r)=>s+r.amount,0).toLocaleString();
   document.getElementById('dv-pending-count').textContent = pending.length + '건';
+  // 이번달 확정 금액 (누적 카드 sub 텍스트)
+  const _nowYM = new Date().toISOString().slice(0,7);
+  const _monthApproved = recs.filter(r => (r.status==='approved'||r.status==='paid') && r.created_at.startsWith(_nowYM));
+  const _monthTotalEl = document.getElementById('dv-month-total-sub');
+  if (_monthTotalEl) _monthTotalEl.textContent = '이번달 ₩' + _monthApproved.reduce((s,r)=>s+r.amount,0).toLocaleString();
 
   // 이번 회차: 마지막 수령(paid) 이후 산책/청소 횟수
   const paidRecs  = recs.filter(r => r.status === 'paid').sort((a,b) => b.created_at.localeCompare(a.created_at));
@@ -2498,7 +2509,7 @@ async function loadDadView() {
     const ctRecs = sinceRecs.filter(ct.match);
     const money  = ctRecs.reduce((s,r) => s + r.amount, 0);
     return `<div class="dv-card" style="text-align:left">
-      <div class="dv-label" style="margin-bottom:8px">${ct.icon} 이번 회차 ${ct.name}</div>
+      <div class="dv-label" style="margin-bottom:8px">${ct.icon} 마지막 수령 이후 ${ct.name}</div>
       <div style="display:flex; align-items:baseline; gap:6px; flex-wrap:wrap">
         <span style="font-size:20px; font-weight:800; color:#191F28; letter-spacing:-0.5px">${ctRecs.length}회</span>
         <span style="font-size:15px; font-weight:700; color:#05D194">₩${money.toLocaleString()}</span>
