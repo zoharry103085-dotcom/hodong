@@ -1368,6 +1368,19 @@
 <!-- 토스트 -->
 <div id="toast"></div>
 
+<!-- ── 취소 사유 입력 모달 ── -->
+<div class="modal-overlay" id="cancel-reason-modal">
+  <div class="modal" style="max-width:300px">
+    <h3 style="margin-bottom:6px">취소 사유 입력</h3>
+    <p style="margin-bottom:12px">사유를 입력하거나 비워두세요 (선택사항)</p>
+    <textarea id="cancel-reason-input" class="dad-textarea" placeholder="예: 안 했어요, 확인 안 됨 등" style="height:72px; margin-bottom:12px"></textarea>
+    <div style="display:flex; gap:10px">
+      <button onclick="closeCancelReasonModal()" style="flex:1; padding:13px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--t2); font-size:14px; font-weight:700; cursor:pointer">취소</button>
+      <button id="cancel-reason-confirm-btn" style="flex:1; padding:13px; border-radius:12px; border:none; background:var(--red); color:#fff; font-size:14px; font-weight:800; cursor:pointer">확인</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── 액션 확인 모달 ── -->
 <div class="modal-overlay" id="action-confirm-modal">
   <div class="modal" style="text-align:center; max-width:300px">
@@ -1659,15 +1672,15 @@ function render() {
 
   // 산책 통계
   const walkAll      = records.filter(r => r.task_name === 'walk' && r.created_at.startsWith(monthStr));
-  const walkApproved = walkAll.filter(r => r.status === 'approved');
-  document.getElementById('walk-earned').textContent = formatMoney(walkApproved.length * 20000);
+  const walkApproved = walkAll.filter(r => r.status === 'approved' || r.status === 'paid');
+  document.getElementById('walk-earned').textContent = formatMoney(walkApproved.reduce((s,r)=>s+r.amount,0));
   document.getElementById('walk-count').textContent  = `이번달 ${walkAll.length}회 완료 · 확정 ${walkApproved.length}회`;
 
   // 청소 통계
   const cleanAll      = records.filter(r => r.task_name.startsWith('clean') && r.created_at.slice(0,10) >= week);
-  const cleanApproved = cleanAll.filter(r => r.status === 'approved');
+  const cleanApproved = cleanAll.filter(r => r.status === 'approved' || r.status === 'paid');
   const cleanCount    = cleanApproved.reduce((s, r) => s + parseInt(r.task_name.split(':')[1] || '1'), 0);
-  document.getElementById('clean-earned').textContent = formatMoney(cleanCount * 50000);
+  document.getElementById('clean-earned').textContent = formatMoney(cleanApproved.reduce((s,r)=>s+r.amount,0));
   document.getElementById('clean-count').textContent  = `이번주 ${cleanAll.length}회 완료 · 확정 ${cleanCount}개`;
 
   // 커스텀 활동 카드
@@ -1840,20 +1853,19 @@ function hexToRgba(hex, alpha) {
 
 // task_name 파싱 유틸
 function parseTask(r) {
-  const parts = r.task_name.split(':');
-  const type  = parts[0];
-
-  if (type === 'custom') {
-    // 형식: custom|<id>|<icon>|<name>|<count>  (아이콘·이름을 레코드에 직접 저장 → 아빠 기기에서도 동일하게 표시)
+  // 커스텀 활동: 형식 custom|<id>|<icon>|<name>|<count>
+  if (r.task_name.startsWith('custom|')) {
     const segs  = r.task_name.split('|');
     const id    = segs[1] || '';
     const icon  = segs[2] || '🎯';
     const name  = segs[3] || '(삭제된 활동)';
     const count = parseInt(segs[4] || '1');
     const label = `${icon} ${name}${count > 1 ? ` ${count}개` : ''}`;
-    return { type, id, count, label, icon, name };
+    return { type: 'custom', id, count, label, icon, name };
   }
 
+  const parts = r.task_name.split(':');
+  const type  = parts[0];
   const count = parseInt(parts[1] || '1');
   const label = type === 'walk' ? '🐕 호동이 산책' : `🧹 화장실 청소${count > 1 ? ` ${count}개` : ''}`;
   return { type, count, label };
@@ -1968,7 +1980,7 @@ function renderCustomCards(monthStr) {
 
   container.innerHTML = items.map(it => {
     const all      = records.filter(r => r.task_name.startsWith(`custom|${it.id}|`) && r.created_at.startsWith(monthStr));
-    const approved = all.filter(r => r.status === 'approved');
+    const approved = all.filter(r => r.status === 'approved' || r.status === 'paid');
     const earned   = approved.reduce((s, r) => s + r.amount, 0);
     const actionLabel = it.mode === 'count' ? `${it.name} 완료!` : `${it.name} 완료!`;
     return `
@@ -2287,7 +2299,7 @@ function renderStats() {
         tooltip: { callbacks: { label: ctx => '₩' + ctx.raw.toLocaleString() } }
       },
       scales: {
-        y: { display: false, min: 0, max: 1000000 },
+        y: { display: false, min: 0 },
         x: { grid: { display: false }, ticks: { color: chartAxis, font: { size: 11 } }, border: { display: true, color: chartBorder } }
       }
     }
@@ -2470,6 +2482,10 @@ function dvToggleDark() {
   const isDark = document.body.classList.contains('dark');
   localStorage.setItem('theme', isDark ? 'dark' : 'light');
   document.getElementById('dv-dark-btn').textContent = isDark ? '☀️' : '🌙';
+  // 통계 탭이 열려 있으면 차트 색상 즉시 재렌더
+  if (document.getElementById('dv-tab-stats').classList.contains('active')) {
+    renderDadStats(window._dvRecs || []);
+  }
 }
 
 function dvScrollToPending() {
@@ -2522,7 +2538,7 @@ async function loadDadView() {
     return `<div class="dv-card" style="text-align:left">
       <div class="dv-label" style="margin-bottom:8px">${ct.icon} 마지막 수령 이후 ${ct.name}</div>
       <div style="display:flex; align-items:baseline; gap:6px; flex-wrap:wrap">
-        <span style="font-size:20px; font-weight:800; color:#191F28; letter-spacing:-0.5px">${ctRecs.length}회</span>
+        <span style="font-size:20px; font-weight:800; color:var(--t1); letter-spacing:-0.5px">${ctRecs.length}회</span>
         <span style="font-size:15px; font-weight:700; color:#05D194">₩${money.toLocaleString()}</span>
       </div>
     </div>`;
@@ -2624,6 +2640,14 @@ function renderDadStats(recs) {
   const monthCleans = months.map(m => recs.filter(r=>r.created_at.startsWith(m)&&r.task_name.startsWith('clean')).length);
   const monthCustom = customTypes.map(ct => months.map(m => recs.filter(r => r.created_at.startsWith(m) && ct.match(r)).length));
 
+  // 다크모드 색상
+  const isDark        = document.body.classList.contains('dark');
+  const dvHighlight   = isDark ? '#00E6A8' : '#111111';
+  const dvMuted       = isDark ? 'rgba(255,255,255,0.18)' : '#d1d5db';
+  const dvChartAxis   = isDark ? '#71717a' : '#9ca3af';
+  const dvChartBorder = isDark ? 'rgba(255,255,255,0.12)' : '#e5e7eb';
+  const dvChartLabel  = isDark ? '#aaaaaa' : '#6b7280';
+
   // 용돈 막대 위 금액 레이블 플러그인
   const dvMoneyLabelPlugin = {
     id: 'dvMoneyLabels',
@@ -2634,7 +2658,7 @@ function renderDadStats(recs) {
         chart.getDatasetMeta(i).data.forEach((bar, idx) => {
           const v = ds.data[idx];
           if (!v) return;
-          ctx.fillStyle = '#6b7280'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
+          ctx.fillStyle = dvChartLabel; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
           const label = v >= 10000 ? '₩' + Math.round(v/10000) + '만' : '₩' + v.toLocaleString();
           ctx.fillText(label, bar.x, bar.y - 4);
         });
@@ -2648,15 +2672,15 @@ function renderDadStats(recs) {
   if (dvChartMoney) dvChartMoney.destroy();
   dvChartMoney = new Chart(ctxM, {
     type: 'bar',
-    data: { labels, datasets: [{ label:'확정 총액', data:monthMoney, backgroundColor:months.map(m=>m===nowYM?'#111':'#d1d5db'), borderRadius:6, borderSkipped:false, barThickness: 20 }] },
+    data: { labels, datasets: [{ label:'확정 총액', data:monthMoney, backgroundColor:months.map(m=>m===nowYM?dvHighlight:dvMuted), borderRadius:6, borderSkipped:false, barThickness: 20 }] },
     plugins: [dvMoneyLabelPlugin],
     options: {
       responsive: true,
       layout: { padding: { top: 18 } },
       plugins: { legend:{display:false}, tooltip:{callbacks:{label:ctx=>'₩'+ctx.raw.toLocaleString()}} },
       scales: {
-        y: { display: false, min: 0, max: 1000000 },
-        x: { grid:{display:false}, ticks:{color:'#9ca3af', font:{size:11}}, border:{display:true, color:'#e5e7eb'} }
+        y: { display: false, min: 0 },
+        x: { grid:{display:false}, ticks:{color:dvChartAxis, font:{size:11}}, border:{display:true, color:dvChartBorder} }
       }
     }
   });
@@ -2671,7 +2695,7 @@ function renderDadStats(recs) {
         chart.getDatasetMeta(i).data.forEach((bar, idx) => {
           const v = ds.data[idx];
           if (!v) return;
-          ctx.fillStyle = '#6b7280'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
+          ctx.fillStyle = dvChartLabel; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
           ctx.fillText(v+'회', bar.x, bar.y - 4);
         });
       });
@@ -2683,18 +2707,18 @@ function renderDadStats(recs) {
   dvChartActivity = new Chart(ctxA, {
     type: 'bar',
     data: { labels, datasets: [
-      { label:'🐕 산책', data:monthWalks,  backgroundColor:'#bfdbfe', borderRadius:6, borderSkipped:false, barThickness: 20},
-      { label:'🧹 청소', data:monthCleans, backgroundColor:'#fbcfe8', borderRadius:6, borderSkipped:false, barThickness: 20},
+      { label:'🐕 산책', data:monthWalks,  backgroundColor: isDark ? 'rgba(37,99,235,0.45)'  : '#bfdbfe', borderRadius:6, borderSkipped:false, barThickness: 20},
+      { label:'🧹 청소', data:monthCleans, backgroundColor: isDark ? 'rgba(219,39,119,0.45)' : '#fbcfe8', borderRadius:6, borderSkipped:false, barThickness: 20},
       ...customTypes.map((ct, i) => ({ label: `${ct.icon} ${ct.name}`, data: monthCustom[i], backgroundColor: hexToRgba(ct.color, 0.45), borderRadius: 6, borderSkipped: false, barThickness: 20 }))
     ]},
     plugins: [dvBarLabelPlugin],
     options: {
       responsive: true,
       layout: { padding: { top: 18 } },
-      plugins: { legend:{position:'bottom',labels:{font:{size:11},padding:10,color:'#6b7280'}} },
+      plugins: { legend:{position:'bottom',labels:{font:{size:11},padding:10,color:dvChartLabel}} },
       scales: {
         y: { display: false, beginAtZero: true },
-        x: { grid:{display:false}, ticks:{color:'#9ca3af', font:{size:11}}, border:{display:true, color:'#e5e7eb'} }
+        x: { grid:{display:false}, ticks:{color:dvChartAxis, font:{size:11}}, border:{display:true, color:dvChartBorder} }
       }
     }
   });
@@ -2793,7 +2817,7 @@ function savePrices() {
 
 // ── 아빠 링크 복사 ──
 function copyDadLink() {
-  const link = APP_URL + '/dad.html';
+  const link = APP_URL + '?dadview=true';
   navigator.clipboard.writeText(link).then(() => showToast('📋 아빠 링크 복사됐어요!')).catch(() => {
     prompt('아래 링크를 복사하세요:', link);
   });
@@ -2989,9 +3013,22 @@ function resendKakao(id) {
 }
 
 // ── 대기중 직접 취소 ──
-async function cancelPending(id) {
-  const reason = prompt('취소 사유를 입력하세요 (선택사항):') ?? null;
-  if (reason === null) return; // 창 닫으면 취소
+let _cancelPendingId = null;
+function cancelPending(id) {
+  _cancelPendingId = id;
+  document.getElementById('cancel-reason-input').value = '';
+  const btn = document.getElementById('cancel-reason-confirm-btn');
+  btn.onclick = () => _execCancelPending();
+  document.getElementById('cancel-reason-modal').classList.add('show');
+}
+function closeCancelReasonModal() {
+  document.getElementById('cancel-reason-modal').classList.remove('show');
+  _cancelPendingId = null;
+}
+async function _execCancelPending() {
+  const id = _cancelPendingId;
+  const reason = document.getElementById('cancel-reason-input').value.trim();
+  closeCancelReasonModal();
   const { error } = await db.from('tasks')
     .update({ status: 'rejected', cancel_reason: reason || '직접 취소' })
     .eq('id', id);
