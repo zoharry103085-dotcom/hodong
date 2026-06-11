@@ -1661,14 +1661,14 @@ function render() {
   const walkAll      = records.filter(r => r.task_name === 'walk' && r.created_at.startsWith(monthStr));
   const walkApproved = walkAll.filter(r => r.status === 'approved');
   document.getElementById('walk-earned').textContent = formatMoney(walkApproved.length * 20000);
-  document.getElementById('walk-count').textContent  = `${walkAll.length}회 완료 · 확정 ${walkApproved.length}회`;
+  document.getElementById('walk-count').textContent  = `이번달 ${walkAll.length}회 완료 · 확정 ${walkApproved.length}회`;
 
   // 청소 통계
   const cleanAll      = records.filter(r => r.task_name.startsWith('clean') && r.created_at.slice(0,10) >= week);
   const cleanApproved = cleanAll.filter(r => r.status === 'approved');
   const cleanCount    = cleanApproved.reduce((s, r) => s + parseInt(r.task_name.split(':')[1] || '1'), 0);
   document.getElementById('clean-earned').textContent = formatMoney(cleanCount * 50000);
-  document.getElementById('clean-count').textContent  = `${cleanAll.length}회 완료 · 확정 ${cleanCount}개`;
+  document.getElementById('clean-count').textContent  = `이번주 ${cleanAll.length}회 완료 · 확정 ${cleanCount}개`;
 
   // 커스텀 활동 카드
   renderCustomCards(monthStr);
@@ -1940,7 +1940,12 @@ function doAction(type) {
 
 function showCleanModal() {
   const todayCleans = records.filter(r => r.task_name.startsWith('clean') && r.created_at.startsWith(today()));
-  if (todayCleans.length > 0 && !confirm(`오늘 이미 화장실 청소를 등록했어요. 한 번 더 등록할까요?`)) return;
+  if (todayCleans.length > 0) {
+    showActionConfirm('🧹', '오늘 이미 청소를 등록했어요', '한 번 더 등록할까요?', () => {
+      document.getElementById('clean-modal').classList.add('show');
+    });
+    return;
+  }
   document.getElementById('clean-modal').classList.add('show');
 }
 
@@ -1972,7 +1977,7 @@ function renderCustomCards(monthStr) {
         <div class="title">${it.name}</div>
         <div class="sub">${formatMoney(it.amount)}${it.mode === 'count' ? '/개' : ''}</div>
         <div class="earned">${formatMoney(earned)}</div>
-        <div class="count">이번달 ${all.length}회 (확정 ${approved.length}회)</div>
+        <div class="count">이번달 ${all.length}회 완료 · 확정 ${approved.length}회</div>
         <button class="btn custom-action-btn"
           onclick="${it.mode === 'count' ? `showCustomCountModal('${it.id}')` : `doCustomAction('${it.id}')`}">${actionLabel}</button>
       </div>`;
@@ -2005,14 +2010,20 @@ async function _execCustomAction(id) {
 function showCustomCountModal(id) {
   const item = findCustomItem(id);
   if (!item) return;
+  const openModal = () => {
+    document.getElementById('cc-modal-title').textContent = `${item.icon} ${item.name}`;
+    document.getElementById('cc-modal-desc').textContent  = `완료한 개수를 선택하세요 (개당 ${formatMoney(item.amount)})`;
+    document.getElementById('cc-modal-options').innerHTML = [1, 2, 3].map(n => `
+      <button class="custom-pick-btn" onclick="doCustomCount('${id}', ${n})">${n}개<br><span>${formatMoney(item.amount * n)}</span></button>
+    `).join('');
+    document.getElementById('custom-count-modal').classList.add('show');
+  };
   const todayRecs = records.filter(r => r.task_name.startsWith(`custom|${id}|`) && r.created_at.startsWith(today()));
-  if (todayRecs.length > 0 && !confirm(`오늘 이미 '${item.name}'을(를) 등록했어요. 한 번 더 등록할까요?`)) return;
-  document.getElementById('cc-modal-title').textContent = `${item.icon} ${item.name}`;
-  document.getElementById('cc-modal-desc').textContent  = `완료한 개수를 선택하세요 (개당 ${formatMoney(item.amount)})`;
-  document.getElementById('cc-modal-options').innerHTML = [1, 2, 3].map(n => `
-    <button class="custom-pick-btn" onclick="doCustomCount('${id}', ${n})">${n}개<br><span>${formatMoney(item.amount * n)}</span></button>
-  `).join('');
-  document.getElementById('custom-count-modal').classList.add('show');
+  if (todayRecs.length > 0) {
+    showActionConfirm(item.icon, `오늘 이미 '${item.name}'을(를) 등록했어요`, '한 번 더 등록할까요?', openModal);
+    return;
+  }
+  openModal();
 }
 
 async function doCustomCount(id, count) {
@@ -2132,13 +2143,13 @@ function showToast(msg) {
 }
 
 // ── 데이터 초기화 ──
-async function resetData() {
-  if (confirm('정말 모든 데이터를 지울까요?')) {
+function resetData() {
+  showActionConfirm('🗑️', '전체 데이터를 초기화할까요?', '삭제된 데이터는 복구할 수 없어요', async () => {
     await db.from('tasks').delete().gte('amount', 0);
     records = [];
     render();
     showToast('🗑️ 데이터 초기화 완료');
-  }
+  });
 }
 
 
@@ -2759,12 +2770,13 @@ function saveCustomItem() {
 
 function deleteCustomItem() {
   if (!editingCustomItemId) return;
-  if (!confirm('이 활동을 삭제할까요? (이미 등록된 내역은 그대로 남아요)')) return;
-  settings.customItems = getCustomItems().filter(it => it.id !== editingCustomItemId);
-  localStorage.setItem('hodong_settings', JSON.stringify(settings));
-  closeCustomItemModal();
-  render();
-  showToast('🗑️ 삭제했어요');
+  showActionConfirm('🗑️', '이 활동을 삭제할까요?', '이미 등록된 내역은 그대로 남아요', () => {
+    settings.customItems = getCustomItems().filter(it => it.id !== editingCustomItemId);
+    localStorage.setItem('hodong_settings', JSON.stringify(settings));
+    closeCustomItemModal();
+    render();
+    showToast('🗑️ 삭제했어요');
+  });
 }
 
 // ── 금액 저장 ──
@@ -3069,18 +3081,18 @@ async function _execDeleteRecord(id) {
 }
 
 // ── 용돈 받음 ──
-async function receiveAllowance() {
+function receiveAllowance() {
   const approvedRecs = records.filter(r => r.status === 'approved');
   if (approvedRecs.length === 0) { showToast('지금 받을 수 있는 금액이 없어요'); return; }
   const total = approvedRecs.reduce((s,r) => s + r.amount, 0);
-  if (!confirm(`총 ${formatMoney(total)}을 수령했어요!\n확정 내역을 수령완료로 바꿀까요?`)) return;
-
-  const ids = approvedRecs.map(r => r.id);
-  const { error } = await db.from('tasks').update({ status: 'paid' }).in('id', ids);
-  if (error) { showToast('❌ 오류: ' + error.message); return; }
-  records = records.map(r => ids.includes(r.id) ? { ...r, status: 'paid' } : r);
-  render();
-  showToast('💜 용돈 수령 완료! 다음달도 열심히!');
+  showActionConfirm('💸', `${formatMoney(total)} 수령할까요?`, '확정 내역을 수령완료로 바꿔요', async () => {
+    const ids = approvedRecs.map(r => r.id);
+    const { error } = await db.from('tasks').update({ status: 'paid' }).in('id', ids);
+    if (error) { showToast('❌ 오류: ' + error.message); return; }
+    records = records.map(r => ids.includes(r.id) ? { ...r, status: 'paid' } : r);
+    render();
+    showToast('💜 용돈 수령 완료! 다음달도 열심히!');
+  });
 }
 
 // 모달 외부 클릭 닫기
