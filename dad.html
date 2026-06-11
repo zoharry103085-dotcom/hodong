@@ -16,7 +16,7 @@
       align-items: center; justify-content: center;
       min-height: 100vh;
       background: linear-gradient(135deg, #05D194, #03A876);
-      font-family: 'Pretendard', -apple-system, sans-serif;
+      font-family: -apple-system, sans-serif;
       padding: 40px 24px;
     }
     .icon { font-size: 72px; margin-bottom: 20px; }
@@ -24,35 +24,21 @@
     .sub { font-size: 15px; color: rgba(255,255,255,0.75); margin-bottom: 48px; }
     .enter-btn {
       display: block;
-      background: #fff;
-      color: #05D194;
-      padding: 18px 48px;
-      border-radius: 18px;
-      font-size: 18px;
-      font-weight: 800;
+      background: #fff; color: #05D194;
+      padding: 18px 48px; border-radius: 18px;
+      font-size: 18px; font-weight: 800;
       text-decoration: none;
       box-shadow: 0 8px 32px rgba(0,0,0,0.15);
       margin-bottom: 40px;
     }
     .hint {
-      font-size: 13px;
-      color: rgba(255,255,255,0.65);
-      text-align: center;
-      line-height: 1.8;
+      font-size: 13px; color: rgba(255,255,255,0.75);
+      text-align: center; line-height: 1.8;
       background: rgba(255,255,255,0.12);
-      border-radius: 14px;
-      padding: 16px 20px;
-      max-width: 300px;
+      border-radius: 14px; padding: 16px 20px; max-width: 300px;
     }
     .hint strong { color: #fff; }
   </style>
-  <script>
-    // PWA 홈 화면에서 열릴 때 자동으로 아빠뷰로 이동
-    if (window.navigator.standalone === true) {
-      localStorage.setItem('hodong_dad', '1');
-      window.location.replace('/hodong/');
-    }
-  </script>
 </head>
 <body>
   <div class="icon">🐾</div>

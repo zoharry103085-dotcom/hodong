@@ -1,7 +1,8 @@
 {
   "name": "호동이 아빠뷰",
   "short_name": "호동이 아빠",
-  "start_url": "/hodong/dad.html",
+  "start_url": "/hodong/?dadview=true",
+  "scope": "/hodong/",
   "display": "standalone",
   "background_color": "#05D194",
   "theme_color": "#05D194",
