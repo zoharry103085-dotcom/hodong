@@ -1485,10 +1485,17 @@
       <div style="height:1px; background:var(--border); margin:18px 0 16px"></div>
 
       <p style="font-size:11px; color:var(--t3); font-weight:700; letter-spacing:.3px; margin-bottom:8px">로그인 계정</p>
-      <button class="save-btn c-kakao" style="width:100%; border-radius:10px; margin-bottom:8px;" onclick="kakaoLogin()">
-        카카오로 로그인하기
+
+      <!-- 로그인 상태 표시 -->
+      <div id="kakao-login-status" style="display:flex; align-items:center; gap:8px; padding:10px 14px; border-radius:12px; background:var(--bg3); margin-bottom:12px">
+        <div id="kakao-status-dot" style="width:8px; height:8px; border-radius:50%; background:var(--t3); flex-shrink:0"></div>
+        <div id="kakao-status-text" style="font-size:12px; color:var(--t2); font-weight:600">상태 확인 중...</div>
+      </div>
+
+      <button id="kakao-login-btn" class="save-btn c-kakao" style="width:100%; border-radius:10px; margin-bottom:8px; display:none" onclick="kakaoLogin()">
+        🔑 카카오로 로그인하기
       </button>
-      <button class="save-btn c-ghost" style="width:100%; border-radius:10px;" onclick="kakaoLogout()">
+      <button id="kakao-logout-btn" class="save-btn c-ghost" style="width:100%; border-radius:10px; display:none" onclick="kakaoLogout()">
         카카오 로그아웃
       </button>
       <p style="font-size:12px; color:var(--t3); margin-top:8px; text-align:center">계정 전환 시 로그아웃 후 재로그인하세요</p>
@@ -1654,6 +1661,10 @@ const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 (function() {
   const s = document.createElement('script');
   s.src = 'https://developers.kakao.com/sdk/js/kakao.js';
+  s.onload = () => {
+    // SDK 로드 완료 후 저장된 토큰 자동 복원
+    setTimeout(() => restoreKakaoLogin(), 100);
+  };
   document.head.appendChild(s);
 })();
 
@@ -1704,6 +1715,8 @@ if (confirmId) {
 } else {
   // 일반 앱
   loadRecords();
+  // 카카오 SDK 로드 후 로그인 복원 (SDK가 이미 로드됐을 경우 대비)
+  if (typeof Kakao !== 'undefined') setTimeout(() => restoreKakaoLogin(), 200);
 }
 
 // ══════════════════════════════════════════
@@ -2072,6 +2085,8 @@ function render() {
   renderWeekCompare();
   // 용돈 수령 이력
   renderReceiptHistory();
+  // 카카오 로그인 상태 버튼 갱신
+  updateKakaoLoginUI();
 }
 
 // ── 커스텀 항목 통계용 유틸 (레코드에서 직접 추출 → 아빠 기기에서도 동일 동작) ──
@@ -2341,12 +2356,105 @@ function sendKakaoMessage(record) {
   });
 }
 
+// ── 카카오 로그인 상태 UI 업데이트 ──
+function updateKakaoLoginUI() {
+  const isLoggedIn = typeof Kakao !== 'undefined'
+    && Kakao.isInitialized && Kakao.isInitialized()
+    && !!Kakao.Auth.getAccessToken();
+
+  const dot    = document.getElementById('kakao-status-dot');
+  const text   = document.getElementById('kakao-status-text');
+  const loginBtn  = document.getElementById('kakao-login-btn');
+  const logoutBtn = document.getElementById('kakao-logout-btn');
+
+  if (isLoggedIn) {
+    if (dot)  { dot.style.background = '#05D194'; }
+    if (text) { text.textContent = '✅ 카카오 로그인 됨 · 알림 전송 가능'; text.style.color = 'var(--accent)'; }
+    if (loginBtn)  loginBtn.style.display  = 'none';
+    if (logoutBtn) logoutBtn.style.display = '';
+  } else {
+    if (dot)  { dot.style.background = '#F5A623'; }
+    if (text) { text.textContent = '⚠️ 카카오 로그인 필요 · 알림 전송 불가'; text.style.color = 'var(--yellow)'; }
+    if (loginBtn)  loginBtn.style.display  = '';
+    if (logoutBtn) logoutBtn.style.display = 'none';
+  }
+}
+
+// ── 카카오 토큰 저장 ──
+function _saveKakaoTokens(authObj) {
+  if (!authObj || !authObj.access_token) return;
+  const stored = {
+    access_token:          authObj.access_token,
+    refresh_token:         authObj.refresh_token         || null,
+    expires_at:            Date.now() + (authObj.expires_in              || 21600) * 1000,
+    refresh_expires_at:    Date.now() + (authObj.refresh_token_expires_in || 5184000) * 1000
+  };
+  localStorage.setItem('hodong_kakao_tokens', JSON.stringify(stored));
+}
+
+// ── 카카오 토큰 자동 복원 (페이지 로드 시) ──
+async function restoreKakaoLogin() {
+  // 카카오 키 없어도 UI는 반드시 업데이트
+  if (!settings.kakaoKey || typeof Kakao === 'undefined') {
+    updateKakaoLoginUI();
+    return;
+  }
+  try { if (!Kakao.isInitialized()) Kakao.init(settings.kakaoKey); } catch(e) {
+    updateKakaoLoginUI();
+    return;
+  }
+
+  const stored = JSON.parse(localStorage.getItem('hodong_kakao_tokens') || 'null');
+  if (!stored) { updateKakaoLoginUI(); return; }
+
+  const now = Date.now();
+
+  if (stored.expires_at > now) {
+    // 액세스 토큰 아직 유효 → 바로 복원
+    Kakao.Auth.setAccessToken(stored.access_token);
+    updateKakaoLoginUI();
+    return;
+  }
+
+  if (stored.refresh_token && stored.refresh_expires_at > now && settings.kakaoRestKey) {
+    // 액세스 토큰 만료 → 리프레시 토큰으로 자동 재발급 (최대 60일)
+    try {
+      const res = await fetch('https://kauth.kakao.com/oauth/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `grant_type=refresh_token&client_id=${settings.kakaoRestKey}&refresh_token=${stored.refresh_token}`
+      });
+      const data = await res.json();
+      if (data.access_token) {
+        const newStored = {
+          access_token:       data.access_token,
+          refresh_token:      data.refresh_token || stored.refresh_token,
+          expires_at:         Date.now() + (data.expires_in || 21600) * 1000,
+          refresh_expires_at: data.refresh_token_expires_in
+            ? Date.now() + data.refresh_token_expires_in * 1000
+            : stored.refresh_expires_at
+        };
+        localStorage.setItem('hodong_kakao_tokens', JSON.stringify(newStored));
+        Kakao.Auth.setAccessToken(data.access_token);
+        updateKakaoLoginUI();
+        return;
+      }
+    } catch(e) {}
+  }
+
+  // 모든 토큰 만료 → 제거 후 재로그인 필요 표시
+  localStorage.removeItem('hodong_kakao_tokens');
+  updateKakaoLoginUI();
+}
+
 function kakaoLogout() {
   if (typeof Kakao !== 'undefined' && Kakao.isInitialized && Kakao.isInitialized() && Kakao.Auth.getAccessToken()) {
     Kakao.Auth.logout(() => {});
   }
+  localStorage.removeItem('hodong_kakao_tokens');
   localStorage.setItem('hodong_force_login', '1');
-  showToast('✅ 로그아웃 완료! 이제 로그인 버튼을 누르면 계정 선택 화면이 떠요');
+  updateKakaoLoginUI();
+  showToast('✅ 로그아웃 완료!');
 }
 
 function kakaoLogin() {
@@ -2356,7 +2464,6 @@ function kakaoLogin() {
 
   if (localStorage.getItem('hodong_force_login')) {
     localStorage.removeItem('hodong_force_login');
-    // SDK가 여는 팝업 URL에 prompt=login을 몰래 추가 → 반드시 로그인 화면 표시
     const _origOpen = window.open;
     window.open = function(url, name, features) {
       if (url && url.includes('kauth.kakao.com')) {
@@ -2368,7 +2475,11 @@ function kakaoLogin() {
   }
   Kakao.Auth.login({
     scope: 'talk_message',
-    success: () => showToast('✅ 카카오 로그인 성공!'),
+    success: (authObj) => {
+      _saveKakaoTokens(authObj);
+      updateKakaoLoginUI();
+      showToast('✅ 카카오 로그인 성공! (최대 60일 유지)');
+    },
     fail: (err) => showToast('❌ 실패: ' + (err.error_description || JSON.stringify(err)))
   });
 }
