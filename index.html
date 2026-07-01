@@ -908,6 +908,128 @@
     .month-detail-item .d-label { font-size:11px; color:var(--t3); }
     .month-detail-item .d-value { font-size:18px; font-weight:800; color:var(--t1); }
 
+    /* ══════════════════════════════════════════
+       선금(가불) 기능 스타일
+    ══════════════════════════════════════════ */
+
+    /* 선금 현황 배너 */
+    .advance-banner {
+      background: var(--bg2);
+      border: 1.5px solid rgba(245,166,35,0.45);
+      border-radius: 18px;
+      padding: 16px 18px;
+      margin-bottom: 14px;
+      position: relative;
+      overflow: hidden;
+    }
+    .advance-banner::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: var(--yellow);
+      border-radius: 3px 3px 0 0;
+    }
+    .advance-banner.deficit::before { background: var(--red); }
+    .advance-banner.deficit { border-color: rgba(240,68,82,0.35); }
+    .adv-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+    .adv-title { font-size:13px; font-weight:800; color:var(--t1); display:flex; align-items:center; gap:5px; }
+    .adv-badge { font-size:10px; font-weight:700; padding:2px 7px; border-radius:20px; background:rgba(245,166,35,0.15); color:var(--yellow); }
+    .adv-badge.red { background:rgba(240,68,82,0.12); color:var(--red); }
+    .adv-amounts { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:12px; }
+    .adv-col { text-align:center; }
+    .adv-col .a-label { font-size:10px; font-weight:600; color:var(--t3); margin-bottom:4px; letter-spacing:0.3px; }
+    .adv-col .a-val { font-size:16px; font-weight:800; color:var(--t1); letter-spacing:-0.4px; }
+    .adv-col .a-val.red { color:var(--red); }
+    .adv-col .a-val.green { color:var(--accent); }
+    .adv-col .a-val.yellow { color:var(--yellow); }
+    .adv-progress-wrap { margin-bottom:10px; }
+    .adv-progress-track { height:8px; background:var(--bg3); border-radius:4px; overflow:hidden; }
+    .adv-progress-fill { height:100%; background:var(--accent); border-radius:4px; transition:width 0.5s; min-width:4px; }
+    .adv-progress-fill.red { background:var(--red); }
+    .adv-progress-label { display:flex; justify-content:space-between; margin-top:5px; font-size:10px; color:var(--t3); }
+    .adv-status-msg { font-size:12px; color:var(--t2); text-align:center; padding:10px 12px; background:var(--bg3); border-radius:10px; line-height:1.6; }
+    .adv-status-msg strong { color:var(--t1); }
+
+    /* 선금 요청 버튼 */
+    .advance-req-btn {
+      display:flex; align-items:center; justify-content:center; gap:8px;
+      width:100%; padding:13px; margin-bottom:14px;
+      background:rgba(245,166,35,0.08);
+      border:1.5px dashed rgba(245,166,35,0.45);
+      border-radius:14px;
+      font-size:13px; font-weight:700; color:var(--yellow);
+      cursor:pointer; transition:all 0.18s;
+    }
+    .advance-req-btn:active { transform:scale(0.97); background:rgba(245,166,35,0.14); }
+
+    /* 다크모드 오버라이드 */
+    body.dark .advance-banner { border-color:rgba(251,191,36,0.25); }
+    body.dark .advance-banner.deficit { border-color:rgba(248,113,113,0.3); }
+    body.dark .advance-req-btn { color:#FBBF24; border-color:rgba(251,191,36,0.3); background:rgba(251,191,36,0.07); }
+
+    /* ── 선금 요청 모달 ── */
+    .advance-modal-overlay {
+      display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:200;
+      align-items:flex-end; justify-content:center; padding-bottom:0;
+    }
+    .advance-modal-overlay.show { display:flex; }
+    .advance-modal {
+      background:var(--bg2); border-radius:28px 28px 0 0; padding:28px 24px 36px;
+      width:100%; max-width:500px;
+      box-shadow:0 -12px 48px rgba(0,0,0,0.25);
+      animation: slideUp 0.25s cubic-bezier(0.32,0.72,0,1);
+    }
+    @keyframes slideUp { from { transform:translateY(100%); } to { transform:translateY(0); } }
+    .advance-modal h3 { font-size:20px; font-weight:800; color:var(--t1); margin-bottom:6px; }
+    .advance-modal .adv-m-desc { font-size:13px; color:var(--t2); margin-bottom:22px; line-height:1.5; }
+    .advance-amount-input {
+      width:100%; padding:16px; border:1.5px solid var(--border2); border-radius:14px;
+      font-size:22px; font-weight:800; color:var(--t1); background:var(--bg);
+      text-align:center; margin-bottom:12px;
+    }
+    .advance-amount-input:focus { outline:none; border-color:var(--yellow); }
+    .advance-note-input {
+      width:100%; padding:13px 15px; border:1.5px solid var(--border); border-radius:12px;
+      font-size:13px; color:var(--t2); background:var(--bg); resize:none; height:70px;
+      margin-bottom:20px;
+    }
+    .advance-note-input:focus { outline:none; border-color:var(--yellow); }
+    .advance-modal-btns { display:flex; gap:10px; }
+    .adv-cancel-btn { flex:1; padding:14px; border:1.5px solid var(--border2); border-radius:14px; background:var(--bg); color:var(--t2); font-size:14px; font-weight:700; cursor:pointer; }
+    .adv-submit-btn { flex:2; padding:14px; border:none; border-radius:14px; background:var(--yellow); color:#fff; font-size:14px; font-weight:700; cursor:pointer; }
+    .adv-submit-btn:active { transform:scale(0.97); }
+    body.dark .adv-submit-btn { background:#D97706; }
+
+    /* ── 히스토리 탭 선금 내역 스타일 ── */
+    .history-item.advance-approved { border-left-color: var(--yellow); }
+    .history-item.advance-pending  { border-left-color: var(--yellow); }
+    .history-item.advance-paid     { border-left-color: var(--t3); }
+    .status-chip.advance { background:#FFFBEB; color:#92400E; }
+    body.dark .status-chip.advance { background:rgba(245,166,35,0.12); color:#FBBF24; }
+
+    /* ── 아빠뷰 선금 영역 ── */
+    .dv-advance-wrap { padding:0 16px 12px; }
+    .dv-give-advance-btn {
+      width:100%; padding:13px; margin-bottom:12px;
+      background:rgba(245,166,35,0.1); border:1.5px dashed rgba(245,166,35,0.4);
+      border-radius:14px; font-size:14px; font-weight:700; color:var(--yellow);
+      cursor:pointer; transition:all 0.15s;
+    }
+    .dv-give-advance-btn:active { transform:scale(0.97); }
+    .dv-advance-status-card {
+      background:rgba(245,166,35,0.07); border:1.5px solid rgba(245,166,35,0.25);
+      border-radius:14px; padding:14px 16px; margin-bottom:12px;
+    }
+    .dv-adv-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; font-size:13px; }
+    .dv-adv-row:last-child { margin-bottom:0; }
+    .dv-adv-key { color:var(--t3); font-weight:600; }
+    .dv-adv-val { color:var(--yellow); font-weight:700; }
+    .dv-adv-val.red { color:var(--red); }
+    .dv-adv-val.green { color:var(--accent); }
+    .dv-adv-progress { height:6px; background:var(--bg3); border-radius:3px; margin-top:10px; overflow:hidden; }
+    .dv-adv-prog-fill { height:100%; background:var(--accent); border-radius:3px; transition:width 0.4s; }
+
     /* ── 모바일 최적화 (좁은 화면) ── */
     @media (max-width: 480px) {
       body { padding: 14px; }
@@ -1018,6 +1140,13 @@
 
   <!-- 내역 탭 -->
   <div class="dv-tab-content active" id="dv-tab-history">
+
+    <!-- 선금 현황 (아빠 뷰) -->
+    <div class="dv-advance-wrap" id="dv-advance-section" style="padding-top:16px">
+      <button class="dv-give-advance-btn" onclick="dvShowGiveAdvanceModal()">💴 선금(가불) 직접 지급하기</button>
+      <div id="dv-advance-status"></div>
+    </div>
+
     <div class="dv-summary" style="padding:16px 16px 0">
       <div class="dv-card">
         <div class="dv-label">확정 용돈 (누적)</div>
@@ -1107,6 +1236,23 @@
   </div>
 </div>
 
+<!-- 아빠 선금 직접 지급 모달 -->
+<div class="advance-modal-overlay" id="dv-advance-modal">
+  <div class="advance-modal">
+    <h3>💴 선금 직접 지급</h3>
+    <p class="adv-m-desc">아빠가 직접 선금을 지급해요. 이후 호동이 용돈에서 자동으로 차감돼요.</p>
+    <label style="font-size:12px; font-weight:700; color:var(--t2); display:block; margin-bottom:8px">지급 금액</label>
+    <input class="advance-amount-input" type="text" id="dv-advance-amount" placeholder="0" inputmode="numeric"
+      onfocus="focusMoneyInput(this)" onblur="blurMoneyInput(this)" />
+    <label style="font-size:12px; font-weight:700; color:var(--t2); display:block; margin-bottom:8px">메모 (선택)</label>
+    <textarea class="advance-note-input" id="dv-advance-note" placeholder="예: 여름 방학 여행 선금 지급 등..."></textarea>
+    <div class="advance-modal-btns">
+      <button class="adv-cancel-btn" onclick="dvCloseAdvanceModal()">취소</button>
+      <button class="adv-submit-btn" onclick="dvGiveAdvance()">💴 선금 지급하기</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══════════════════════════════════════ -->
 <!-- 메인 앱                                -->
 <!-- ══════════════════════════════════════ -->
@@ -1189,6 +1335,14 @@
 
     <!-- 이번주 vs 지난주 -->
     <div class="week-compare-card" id="week-compare"></div>
+
+    <!-- 선금 현황 배너 -->
+    <div id="advance-banner" style="display:none"></div>
+
+    <!-- 선금 요청 버튼 -->
+    <button class="advance-req-btn" id="advance-req-btn" onclick="showAdvanceRequestModal()">
+      💴 선금(가불) 요청하기
+    </button>
 
     <button class="receive-btn" id="receive-btn" onclick="receiveAllowance()">
       💸 이번달 용돈 수령
@@ -1446,6 +1600,23 @@
   </div>
 </div>
 
+<!-- 선금 요청 모달 (호동 → 아빠) -->
+<div class="advance-modal-overlay" id="advance-req-modal">
+  <div class="advance-modal">
+    <h3>💴 선금 요청</h3>
+    <p class="adv-m-desc">여행이나 급하게 필요한 경우, 아빠한테 선금을 요청할 수 있어요.<br>선금은 이후 용돈에서 자동으로 깎여요.</p>
+    <label style="font-size:12px; font-weight:700; color:var(--t2); display:block; margin-bottom:8px">요청 금액</label>
+    <input class="advance-amount-input" type="text" id="advance-req-amount" placeholder="0" inputmode="numeric"
+      onfocus="focusMoneyInput(this)" onblur="blurMoneyInput(this)" />
+    <label style="font-size:12px; font-weight:700; color:var(--t2); display:block; margin-bottom:8px">사유 (선택)</label>
+    <textarea class="advance-note-input" id="advance-req-note" placeholder="예: 친구 여행 경비, 운동복 구매 등..."></textarea>
+    <div class="advance-modal-btns">
+      <button class="adv-cancel-btn" onclick="closeAdvanceRequestModal()">취소</button>
+      <button class="adv-submit-btn" onclick="submitAdvanceRequest()">💴 요청 보내기</button>
+    </div>
+  </div>
+</div>
+
 <!-- 금액 수정 모달 -->
 <div class="amount-modal-overlay" id="amount-modal">
   <div class="amount-modal">
@@ -1559,9 +1730,18 @@ async function initDadPage(id) {
     const parsed = parseTask(data);
     const { type, count } = parsed;
     let dadIcon, dadTitle;
-    if (type === 'walk')      { dadIcon = '🐕'; dadTitle = '호동이 산책 완료!'; }
+    if (type === 'advance')   { dadIcon = '💴'; dadTitle = `선금 ${formatMoney(data.amount)} 요청!`; }
+    else if (type === 'walk') { dadIcon = '🐕'; dadTitle = '호동이 산책 완료!'; }
     else if (type === 'clean'){ dadIcon = '🧹'; dadTitle = `화장실 청소 완료! (${count}개)`; }
     else                      { dadIcon = parsed.icon || '🎯'; dadTitle = `${parsed.name}${count > 1 ? ` ${count}개` : ''} 완료!`; }
+
+    // 선금 요청의 경우 버튼 텍스트 변경
+    if (type === 'advance') {
+      const confirmBtnEl = document.querySelector('.dad-btn-confirm');
+      if (confirmBtnEl) confirmBtnEl.textContent = '💴 선금 지급하기';
+      const cancelBtnEl = document.querySelector('.dad-btn-reject');
+      if (cancelBtnEl) cancelBtnEl.textContent = '❌ 거절하기';
+    }
 
     document.getElementById('dad-icon').textContent   = dadIcon;
     document.getElementById('dad-title').textContent  = dadTitle;
@@ -1686,18 +1866,53 @@ function render() {
   // 커스텀 활동 카드
   renderCustomCards(monthStr);
 
-  // 전체 금액 (paid 제외, approved만)
-  const totalApproved = records.filter(r => r.status === 'approved').reduce((s, r) => s + r.amount, 0);
-  const totalPending  = records.filter(r => r.status === 'pending').reduce((s, r) => s + r.amount, 0);
-  document.getElementById('total-amount').textContent  = formatMoney(totalApproved);
+  // 전체 금액 (paid 제외, approved만 / 선금 레코드 제외)
+  const totalApproved = records.filter(r => r.status === 'approved' && r.task_name !== 'advance').reduce((s, r) => s + r.amount, 0);
+  const totalPending  = records.filter(r => r.status === 'pending'  && r.task_name !== 'advance').reduce((s, r) => s + r.amount, 0);
+
+  // 선금(가불) 계산
+  const activeAdvances = records.filter(r => r.task_name === 'advance' && r.status === 'approved');
+  const advanceOwed    = activeAdvances.reduce((s, r) => s + r.amount, 0);
+  const netBalance     = totalApproved - advanceOwed;
+
+  // 헤더 금액 표시
+  const totalAmountEl = document.getElementById('total-amount');
+  if (advanceOwed > 0) {
+    if (netBalance >= 0) {
+      totalAmountEl.textContent = formatMoney(netBalance);
+      totalAmountEl.style.color = '';
+    } else {
+      totalAmountEl.textContent = '-' + formatMoney(Math.abs(netBalance));
+      totalAmountEl.style.color = 'var(--red)';
+    }
+  } else {
+    totalAmountEl.textContent = formatMoney(totalApproved);
+    totalAmountEl.style.color = '';
+  }
+
   document.getElementById('pending-amount').textContent = formatMoney(totalPending);
+
+  // 선금 배너 렌더
+  renderAdvanceBanner(advanceOwed, totalApproved);
+
   // 용돈 받음 버튼: approved 있을 때만 활성화
   const receiveBtn = document.getElementById('receive-btn');
   if (receiveBtn) {
     receiveBtn.disabled = totalApproved === 0;
-    receiveBtn.innerHTML = totalApproved > 0
-      ? `💸 이번달 용돈 수령 · ${formatMoney(totalApproved)}`
-      : '💸 이번달 용돈 수령';
+    if (totalApproved === 0) {
+      receiveBtn.innerHTML = '💸 이번달 용돈 수령';
+    } else if (advanceOwed > 0) {
+      if (totalApproved >= advanceOwed) {
+        const surplus = totalApproved - advanceOwed;
+        receiveBtn.innerHTML = surplus > 0
+          ? `💴 선금 상환 + ${formatMoney(surplus)} 수령`
+          : `💴 선금 완전 상환! (${formatMoney(advanceOwed)})`;
+      } else {
+        receiveBtn.innerHTML = `💴 선금 ${formatMoney(totalApproved)} 상환 (잔액 ${formatMoney(advanceOwed - totalApproved)})`;
+      }
+    } else {
+      receiveBtn.innerHTML = `💸 이번달 용돈 수령 · ${formatMoney(totalApproved)}`;
+    }
   }
   // 대기중 뱃지
   const badge = document.getElementById('tab-badge');
@@ -1782,14 +1997,44 @@ function render() {
   } else {
     const colorMap  = { pending:'#F5A623', approved:'#05D194', rejected:'#F04452', paid:'#8B72F0' };
     const statusMap = { pending:'⏳ 대기중', approved:'✅ 확정', rejected:'❌ 취소됨', paid:'💜 수령완료' };
+
+    // 선금 레코드 분리
+    const advanceRecs  = records.filter(r => r.task_name === 'advance');
+    const activityRecs = records.filter(r => r.task_name !== 'advance');
+
     const groups = [
       { key: 'pending',  title: '⏳ 대기중' },
       { key: 'approved', title: '✅ 확정됨' },
       { key: 'paid',     title: '💜 수령완료' },
       { key: 'rejected', title: '❌ 취소됨' },
     ];
-    groupsEl.innerHTML = groups.map(g => {
-      const items = records.filter(r => r.status === g.key);
+
+    // 선금 섹션
+    const advanceSection = advanceRecs.length === 0 ? '' : `
+      <div class="history-group">
+        <div class="history-group-title">💴 선금(가불) 내역 (${advanceRecs.length}건)</div>
+        ${advanceRecs.map(r => {
+          const advStatusMap = { pending:'⏳ 승인 대기', approved:'💴 지급됨', paid:'✅ 상환완료', rejected:'❌ 거절됨' };
+          const advColorMap  = { pending:'#F5A623', approved:'#F5A623', paid:'#6B7685', rejected:'#F04452' };
+          const note = r.cancel_reason ? `<div class="reason" style="background:rgba(245,166,35,0.08); color:var(--yellow)">📝 ${r.cancel_reason}</div>` : '';
+          return `
+            <div class="history-item ${r.status}" style="align-items:center; border-left-color:${advColorMap[r.status]}">
+              <div class="left" style="flex:1">
+                <div class="name">💴 선금</div>
+                <div class="date">${formatDate(r.created_at)}</div>
+                ${note}
+              </div>
+              <div class="right">
+                <div class="money" style="color:${advColorMap[r.status]}">${formatMoney(r.amount)}</div>
+                <span class="status-chip advance">${advStatusMap[r.status] || r.status}</span>
+              </div>
+              <button class="del-btn" onclick="deleteRecord('${r.id}')" title="삭제">🗑️</button>
+            </div>`;
+        }).join('')}
+      </div>`;
+
+    groupsEl.innerHTML = advanceSection + groups.map(g => {
+      const items = activityRecs.filter(r => r.status === g.key);
       if (items.length === 0) return '';
       return `
         <div class="history-group">
@@ -1853,6 +2098,11 @@ function hexToRgba(hex, alpha) {
 
 // task_name 파싱 유틸
 function parseTask(r) {
+  // 선금: advance
+  if (r.task_name === 'advance') {
+    return { type: 'advance', count: 1, label: '💴 선금', icon: '💴', name: '선금' };
+  }
+
   // 커스텀 활동: 형식 custom|<id>|<icon>|<name>|<count>
   if (r.task_name.startsWith('custom|')) {
     const segs  = r.task_name.split('|');
@@ -2230,8 +2480,8 @@ function renderStats() {
       <div class="today-val">${todayRecs.filter(ct.match).length}회</div>
     </div>`).join('');
 
-  // 이번달 요약
-  const thisRecs     = records.filter(r => r.created_at.startsWith(now));
+  // 이번달 요약 (선금 제외)
+  const thisRecs     = records.filter(r => r.created_at.startsWith(now) && r.task_name !== 'advance');
   const thisApproved = thisRecs.filter(r => r.status === 'approved' || r.status === 'paid');
   const thisPending  = thisRecs.filter(r => r.status === 'pending');
   const thisWalks    = thisRecs.filter(r => r.task_name === 'walk');
@@ -2254,8 +2504,8 @@ function renderStats() {
       </div>`;
   }).join('');
 
-  // 월별 집계
-  const monthMoney  = months.map(m => records.filter(r => r.created_at.startsWith(m) && (r.status === 'approved' || r.status === 'paid')).reduce((s,r)=>s+r.amount,0));
+  // 월별 집계 (선금 제외)
+  const monthMoney  = months.map(m => records.filter(r => r.created_at.startsWith(m) && (r.status === 'approved' || r.status === 'paid') && r.task_name !== 'advance').reduce((s,r)=>s+r.amount,0));
   const monthWalks  = months.map(m => records.filter(r => r.created_at.startsWith(m) && r.task_name === 'walk').length);
   const monthCleans = months.map(m => records.filter(r => r.created_at.startsWith(m) && r.task_name.startsWith('clean')).length);
   const monthCustom = customTypes.map(ct => months.map(m => records.filter(r => r.created_at.startsWith(m) && ct.match(r)).length));
@@ -2513,8 +2763,11 @@ async function loadDadView() {
   const recs = data;
   window._dvRecs = recs;
 
-  const approved = recs.filter(r => r.status === 'approved' || r.status === 'paid');
-  const pending  = recs.filter(r => r.status === 'pending');
+  // 선금 현황 렌더
+  renderDvAdvanceStatus(recs);
+
+  const approved = recs.filter(r => (r.status === 'approved' || r.status === 'paid') && r.task_name !== 'advance');
+  const pending  = recs.filter(r => r.status === 'pending' && r.task_name !== 'advance');
 
   document.getElementById('dv-total').textContent         = approved.reduce((s,r)=>s+r.amount,0).toLocaleString() + '원';
   document.getElementById('dv-pending-count').textContent = pending.length + '건';
@@ -3140,19 +3393,79 @@ async function _execDeleteRecord(id) {
   showToast('🗑️ 삭제 완료');
 }
 
-// ── 용돈 받음 ──
+// ── 용돈 받음 (선금 자동 차감 포함) ──
 function receiveAllowance() {
-  const approvedRecs = records.filter(r => r.status === 'approved');
+  const approvedRecs   = records.filter(r => r.status === 'approved' && r.task_name !== 'advance');
   if (approvedRecs.length === 0) { showToast('지금 받을 수 있는 금액이 없어요'); return; }
-  const total = approvedRecs.reduce((s,r) => s + r.amount, 0);
-  showActionConfirm('💸', `${formatMoney(total)} 수령할까요?`, '확정 내역을 수령완료로 바꿔요', async () => {
-    const ids = approvedRecs.map(r => r.id);
-    const { error } = await db.from('tasks').update({ status: 'paid' }).in('id', ids);
-    if (error) { showToast('❌ 오류: ' + error.message); return; }
-    records = records.map(r => ids.includes(r.id) ? { ...r, status: 'paid' } : r);
-    render();
-    showToast('💜 용돈 수령 완료! 다음달도 열심히!');
-  });
+
+  const earned         = approvedRecs.reduce((s,r) => s + r.amount, 0);
+  const activeAdvances = records.filter(r => r.task_name === 'advance' && r.status === 'approved');
+  const advanceOwed    = activeAdvances.reduce((s,r) => s + r.amount, 0);
+
+  if (advanceOwed <= 0) {
+    // ── 선금 없음: 기존 로직 ──
+    showActionConfirm('💸', `${formatMoney(earned)} 수령할까요?`, '확정 내역을 수령완료로 바꿔요', async () => {
+      const ids = approvedRecs.map(r => r.id);
+      const { error } = await db.from('tasks').update({ status: 'paid' }).in('id', ids);
+      if (error) { showToast('❌ 오류: ' + error.message); return; }
+      records = records.map(r => ids.includes(r.id) ? { ...r, status: 'paid' } : r);
+      render();
+      showToast('💜 용돈 수령 완료! 다음달도 열심히!');
+    });
+    return;
+  }
+
+  if (earned >= advanceOwed) {
+    // ── 선금 완전 상환 + 잔액 수령 ──
+    const surplus = earned - advanceOwed;
+    const icon    = surplus > 0 ? '🎉' : '💴';
+    const title   = surplus > 0 ? `선금 상환 후 ${formatMoney(surplus)} 수령!` : '선금 완전 상환!';
+    const sub     = `번 돈 ${formatMoney(earned)} → 선금 ${formatMoney(advanceOwed)} 상환` + (surplus > 0 ? ` + ${formatMoney(surplus)} 받기` : '');
+    showActionConfirm(icon, title, sub, async () => {
+      const ids    = approvedRecs.map(r => r.id);
+      const advIds = activeAdvances.map(r => r.id);
+      const { error: e1 } = await db.from('tasks').update({ status: 'paid' }).in('id', ids);
+      const { error: e2 } = await db.from('tasks')
+        .update({ status: 'paid', cancel_reason: `선금 완전 상환 (활동 수익 ${formatMoney(earned)} 적용)` })
+        .in('id', advIds);
+      if (e1 || e2) { showToast('❌ 오류 발생. 다시 시도해주세요'); return; }
+      records = records.map(r => [...ids, ...advIds].includes(r.id) ? { ...r, status: 'paid' } : r);
+      render();
+      const msg = surplus > 0
+        ? `💜 선금 상환 완료! ${formatMoney(surplus)} 수령했어요`
+        : '💴 선금 완전 상환 완료! 수고했어요 🎉';
+      showToast(msg);
+    });
+  } else {
+    // ── 선금 일부 상환 ──
+    const remaining = advanceOwed - earned;
+    showActionConfirm('💴', '선금 일부 상환',
+      `번 돈 ${formatMoney(earned)}으로 선금 상환 → 남은 선금: ${formatMoney(remaining)}`,
+      async () => {
+        const ids    = approvedRecs.map(r => r.id);
+        const advIds = activeAdvances.map(r => r.id);
+        // 활동 내역 paid 처리
+        const { error: e1 } = await db.from('tasks').update({ status: 'paid' }).in('id', ids);
+        if (e1) { showToast('❌ 오류: ' + e1.message); return; }
+        // 기존 선금 기록 paid 처리 (cancel_reason에 상환 내역 기록)
+        const { error: e2 } = await db.from('tasks')
+          .update({ status: 'paid', cancel_reason: `${formatMoney(earned)} 상환 → 잔액 ${formatMoney(remaining)} 이월` })
+          .in('id', advIds);
+        if (e2) { showToast('❌ 오류: ' + e2.message); return; }
+        // 남은 선금 새 레코드 생성
+        const { data: newAdv, error: e3 } = await db.from('tasks').insert({
+          task_name: 'advance',
+          amount: remaining,
+          status: 'approved',
+          cancel_reason: `선금 잔액 (${formatMoney(earned)} 상환 후 이월)`
+        }).select().single();
+        if (e3) { showToast('❌ 잔액 이월 실패: ' + e3.message); return; }
+        records = records.map(r => [...ids, ...advIds].includes(r.id) ? { ...r, status: 'paid' } : r);
+        records.unshift(newAdv);
+        render();
+        showToast(`💴 ${formatMoney(earned)} 상환! 남은 선금 ${formatMoney(remaining)}`);
+      });
+  }
 }
 
 // 모달 외부 클릭 닫기
@@ -3165,6 +3478,229 @@ document.getElementById('custom-item-modal').addEventListener('click', function(
 document.getElementById('custom-count-modal').addEventListener('click', function(e) {
   if (e.target === this) this.classList.remove('show');
 });
+document.getElementById('advance-req-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeAdvanceRequestModal();
+});
+document.getElementById('dv-advance-modal').addEventListener('click', function(e) {
+  if (e.target === this) dvCloseAdvanceModal();
+});
+
+// ══════════════════════════════════════════
+// 선금(가불) 기능
+// ══════════════════════════════════════════
+
+// ── 선금 현황 배너 렌더 (호동 홈 탭) ──
+function renderAdvanceBanner(advanceOwed, earnedBalance) {
+  const el = document.getElementById('advance-banner');
+  const reqBtn = document.getElementById('advance-req-btn');
+  if (!el) return;
+
+  if (advanceOwed <= 0) {
+    el.style.display = 'none';
+    if (reqBtn) reqBtn.style.display = '';
+    return;
+  }
+
+  // 선금이 있으면 요청 버튼 숨김 (중복 방지)
+  if (reqBtn) reqBtn.style.display = 'none';
+
+  el.style.display = '';
+  const deficit  = earnedBalance < advanceOwed;
+  const net      = earnedBalance - advanceOwed;
+  const pct      = Math.min(100, Math.round(earnedBalance / advanceOwed * 100));
+
+  el.className = 'advance-banner' + (deficit ? ' deficit' : '');
+
+  if (deficit) {
+    // 아직 갚는 중 (earned < owed)
+    el.innerHTML = `
+      <div class="adv-header">
+        <div class="adv-title">💴 선금 상환 진행 중 <span class="adv-badge red">D-day</span></div>
+      </div>
+      <div class="adv-amounts">
+        <div class="adv-col">
+          <div class="a-label">받은 선금</div>
+          <div class="a-val yellow">${formatMoney(advanceOwed)}</div>
+        </div>
+        <div class="adv-col">
+          <div class="a-label">지금까지 번 돈</div>
+          <div class="a-val green">${formatMoney(earnedBalance)}</div>
+        </div>
+        <div class="adv-col">
+          <div class="a-label">남은 선금</div>
+          <div class="a-val red">${formatMoney(Math.abs(net))}</div>
+        </div>
+      </div>
+      <div class="adv-progress-wrap">
+        <div class="adv-progress-track">
+          <div class="adv-progress-fill" style="width:${pct}%"></div>
+        </div>
+        <div class="adv-progress-label">
+          <span>0원</span><span>${pct}% 상환</span><span>${formatMoney(advanceOwed)}</span>
+        </div>
+      </div>
+      <div class="adv-status-msg">
+        선금이 <strong>${formatMoney(Math.abs(net))}</strong> 남아있어요.<br>
+        앞으로 <strong>${formatMoney(Math.abs(net))}</strong>를 더 벌면 선금이 모두 갚아져요! 💪
+      </div>`;
+  } else {
+    // 선금보다 더 벌었음
+    el.innerHTML = `
+      <div class="adv-header">
+        <div class="adv-title">💴 선금 상환 완료 준비! <span class="adv-badge">상환 가능</span></div>
+      </div>
+      <div class="adv-amounts">
+        <div class="adv-col">
+          <div class="a-label">받은 선금</div>
+          <div class="a-val yellow">${formatMoney(advanceOwed)}</div>
+        </div>
+        <div class="adv-col">
+          <div class="a-label">번 돈</div>
+          <div class="a-val green">${formatMoney(earnedBalance)}</div>
+        </div>
+        <div class="adv-col">
+          <div class="a-label">수령 예정</div>
+          <div class="a-val green">${formatMoney(net)}</div>
+        </div>
+      </div>
+      <div class="adv-progress-wrap">
+        <div class="adv-progress-track">
+          <div class="adv-progress-fill" style="width:100%"></div>
+        </div>
+        <div class="adv-progress-label">
+          <span>선금 ${formatMoney(advanceOwed)} 완전 상환</span><span>✅ 완료</span>
+        </div>
+      </div>
+      <div class="adv-status-msg">
+        선금을 모두 상환했어요! 💰 아래 버튼으로 정산 후 <strong>${formatMoney(net)}</strong> 수령하세요.
+      </div>`;
+  }
+}
+
+// ── 선금 요청 모달 (호동 → 아빠 카카오 알림) ──
+function showAdvanceRequestModal() {
+  document.getElementById('advance-req-modal').classList.add('show');
+  document.getElementById('advance-req-amount').value = '';
+  document.getElementById('advance-req-note').value   = '';
+}
+function closeAdvanceRequestModal() {
+  document.getElementById('advance-req-modal').classList.remove('show');
+}
+async function submitAdvanceRequest() {
+  const amt  = parseInt(document.getElementById('advance-req-amount').value.replace(/[^0-9]/g,''));
+  const note = document.getElementById('advance-req-note').value.trim();
+  if (!amt || amt <= 0) { showToast('❌ 요청 금액을 입력하세요'); return; }
+
+  const { data, error } = await db.from('tasks').insert({
+    task_name: 'advance',
+    amount:    amt,
+    status:    'pending',
+    cancel_reason: note || null
+  }).select().single();
+
+  if (error) { showToast('❌ 요청 실패: ' + error.message); return; }
+  records.unshift(data);
+  closeAdvanceRequestModal();
+  render();
+  _sendAdvanceKakao(data);
+  showToast('💴 선금 요청 완료! 아빠한테 알림 전송중...');
+}
+
+function _sendAdvanceKakao(record) {
+  if (!settings.kakaoKey || typeof Kakao === 'undefined') return;
+  try { if (!Kakao.isInitialized()) Kakao.init(settings.kakaoKey); } catch(e) { return; }
+  const confirmLink = `${APP_URL}?confirm=${record.id}`;
+  const noteText    = record.cancel_reason ? `사유: ${record.cancel_reason}\n` : '';
+  const msgText     = `[호동이 프로젝트]\n💴 선금 요청!\n금액: ${formatMoney(record.amount)}\n${noteText}\n👇 아래에서 승인/거절해주세요!\n${confirmLink}`;
+  Kakao.API.request({
+    url: '/v2/api/talk/memo/default/send',
+    data: { template_object: { object_type:'text', text:msgText, link:{ mobile_web_url:confirmLink, web_url:confirmLink } } },
+    success: () => showToast('📨 카톡 전송 완료!'),
+    fail:    () => {}
+  });
+}
+
+// ── 아빠 뷰: 선금 직접 지급 모달 ──
+function dvShowGiveAdvanceModal() {
+  document.getElementById('dv-advance-modal').classList.add('show');
+  document.getElementById('dv-advance-amount').value = '';
+  document.getElementById('dv-advance-note').value   = '';
+}
+function dvCloseAdvanceModal() {
+  document.getElementById('dv-advance-modal').classList.remove('show');
+}
+async function dvGiveAdvance() {
+  const amt  = parseInt(document.getElementById('dv-advance-amount').value.replace(/[^0-9]/g,''));
+  const note = document.getElementById('dv-advance-note').value.trim();
+  if (!amt || amt <= 0) { showToast('❌ 지급 금액을 입력하세요'); return; }
+
+  const { data, error } = await db.from('tasks').insert({
+    task_name: 'advance',
+    amount:    amt,
+    status:    'approved',
+    cancel_reason: note || '아빠 직접 지급'
+  }).select().single();
+
+  if (error) { showToast('❌ 실패: ' + error.message); return; }
+  dvCloseAdvanceModal();
+  showToast(`💴 선금 ${formatMoney(amt)} 지급 완료!`);
+  loadDadView();
+}
+
+// ── 아빠 뷰: 선금 현황 렌더 ──
+function renderDvAdvanceStatus(recs) {
+  const el = document.getElementById('dv-advance-status');
+  if (!el) return;
+
+  const activeAdvances = recs.filter(r => r.task_name === 'advance' && r.status === 'approved');
+  const pendingAdvances = recs.filter(r => r.task_name === 'advance' && r.status === 'pending');
+  const advanceOwed    = activeAdvances.reduce((s,r) => s + r.amount, 0);
+  const earned         = recs.filter(r => r.status === 'approved' && r.task_name !== 'advance').reduce((s,r) => s + r.amount, 0);
+
+  let html = '';
+
+  // 대기중 선금 요청
+  if (pendingAdvances.length > 0) {
+    html += `<div style="font-size:12px; font-weight:700; color:var(--yellow); margin-bottom:8px">⏳ 선금 요청 대기 중</div>`;
+    html += pendingAdvances.map(r => `
+      <div class="dv-advance-card">
+        <div class="dv-adv-title">💴 선금 요청</div>
+        <div class="dv-adv-sub">${formatDate(r.created_at)}${r.cancel_reason ? ' · ' + r.cancel_reason : ''}</div>
+        <div class="dv-adv-amount">${formatMoney(r.amount)}</div>
+        <a class="dv-confirm-link" href="${APP_URL}?confirm=${r.id}" style="margin-top:8px; display:block">승인/거절하기 →</a>
+      </div>`).join('');
+  }
+
+  // 활성 선금 현황
+  if (advanceOwed > 0) {
+    const pct = Math.min(100, Math.round(earned / advanceOwed * 100));
+    const net = earned - advanceOwed;
+    html += `
+      <div class="dv-advance-status-card">
+        <div style="font-size:12px; font-weight:700; color:var(--yellow); margin-bottom:10px">💴 선금 현황</div>
+        <div class="dv-adv-row">
+          <span class="dv-adv-key">미상환 선금</span>
+          <span class="dv-adv-val">${formatMoney(advanceOwed)}</span>
+        </div>
+        <div class="dv-adv-row">
+          <span class="dv-adv-key">현재 확정 수익</span>
+          <span class="dv-adv-val ${net >= 0 ? 'green' : 'red'}">${formatMoney(earned)}</span>
+        </div>
+        <div class="dv-adv-row">
+          <span class="dv-adv-key">${net >= 0 ? '선금 완납 · 수령 예정' : '남은 선금'}</span>
+          <span class="dv-adv-val ${net >= 0 ? 'green' : 'red'}">${formatMoney(Math.abs(net))}</span>
+        </div>
+        <div class="dv-adv-progress">
+          <div class="dv-adv-prog-fill" style="width:${pct}%"></div>
+        </div>
+        <div style="font-size:10px; color:var(--t3); margin-top:6px; text-align:right">${pct}% 상환 완료</div>
+      </div>`;
+  } else if (pendingAdvances.length === 0) {
+    html = `<div style="font-size:12px; color:var(--t3); text-align:center; padding:10px">현재 진행 중인 선금이 없어요 ✅</div>`;
+  }
+
+  el.innerHTML = html;
+}
 </script>
 </body>
 </html>
