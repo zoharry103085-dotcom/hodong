@@ -976,7 +976,7 @@
 
     /* ── 선금 요청 모달 ── */
     .advance-modal-overlay {
-      display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:200;
+      display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:3200;
       align-items:flex-end; justify-content:center; padding-bottom:0;
     }
     .advance-modal-overlay.show { display:flex; }
@@ -1136,7 +1136,7 @@
         <button class="dv-icon-btn" onclick="loadDadView()" title="새로고침">🔄</button>
       </div>
     </div>
-    <span class="dv-readonly-badge" style="margin-top:10px; display:inline-block">👁 읽기 전용</span>
+    <span class="dv-readonly-badge" style="margin-top:10px; display:inline-block">🔑 아빠 전용 (승인·지급 가능)</span>
   </div>
 
   <div class="dv-tabs">
@@ -1231,13 +1231,17 @@
     <!-- 월별 수익 그래프 -->
     <div class="dv-chart-card">
       <div class="dv-chart-title">📈 월별 확정 총액 (최근 6개월)</div>
-      <canvas id="dv-chart-money" height="130"></canvas>
+      <div style="position:relative; height:180px; width:100%;">
+        <canvas id="dv-chart-money"></canvas>
+      </div>
     </div>
 
     <!-- 월별 활동 그래프 -->
     <div class="dv-chart-card">
       <div class="dv-chart-title">📊 월별 활동 횟수 (최근 6개월)</div>
-      <canvas id="dv-chart-activity" height="130"></canvas>
+      <div style="position:relative; height:200px; width:100%;">
+        <canvas id="dv-chart-activity"></canvas>
+      </div>
     </div>
   </div>
 </div>
@@ -1425,13 +1429,17 @@
     <!-- 월별 수익 그래프 -->
     <div class="chart-card">
       <div class="chart-title">📈 월별 확정 총액 (최근 6개월)</div>
-      <canvas id="chart-monthly-money" height="130"></canvas>
+      <div style="position:relative; height:180px; width:100%;">
+        <canvas id="chart-monthly-money"></canvas>
+      </div>
     </div>
 
     <!-- 월별 활동 그래프 -->
     <div class="chart-card">
       <div class="chart-title">📊 월별 활동 횟수 (최근 6개월)</div>
-      <canvas id="chart-monthly-activity" height="130"></canvas>
+      <div style="position:relative; height:200px; width:100%;">
+        <canvas id="chart-monthly-activity"></canvas>
+      </div>
     </div>
 
     <!-- 달력 뷰 -->
@@ -1472,7 +1480,7 @@
 
     <div class="settings-card">
       <div class="section-title"><span class="s-icon" style="background:#FFF7ED">👨</span>아빠 전용 링크</div>
-      <p style="font-size:12px; color:var(--t2); margin-bottom:10px">아빠한테 이 링크를 공유하면 활동 현황을 볼 수 있어요 (읽기 전용)</p>
+      <p style="font-size:12px; color:var(--t2); margin-bottom:10px">아빠한테 이 링크를 공유하면 활동을 승인/취소하고 선금도 지급할 수 있어요 (아빠 외 타인에게는 공유하지 마세요)</p>
       <button class="save-btn" style="width:100%; border-radius:10px" onclick="copyDadLink()">🔗 아빠 링크 복사</button>
     </div>
 
@@ -1481,9 +1489,9 @@
 
       <p style="font-size:11px; color:var(--t3); font-weight:700; letter-spacing:.3px; margin-bottom:8px">앱 키 설정</p>
       <label>내 카카오 앱 JavaScript Key</label>
-      <input type="text" id="kakao-app-key" placeholder="여기에 JavaScript 키를 붙여넣으세요" />
+      <input type="password" id="kakao-app-key" placeholder="여기에 JavaScript 키를 붙여넣으세요" autocomplete="off" />
       <label style="margin-top:14px; display:block">REST API Key <span style="font-size:11px; color:var(--t3)">(로그아웃 계정 전환용)</span></label>
-      <input type="text" id="kakao-rest-key" placeholder="REST API 키 (로그아웃할 때 필요)" />
+      <input type="password" id="kakao-rest-key" placeholder="REST API 키 (로그아웃할 때 필요)" autocomplete="off" />
       <label style="margin-top:14px; display:block">아빠 카카오 UUID (나중에 입력)</label>
       <input type="text" id="dad-uuid" placeholder="친구에게 보내기 연동 후 입력" />
       <button class="save-btn" onclick="saveSettings()">저장하기</button>
@@ -2756,6 +2764,7 @@ function renderStats() {
     plugins: [moneyLabelPlugin],
     options: {
       responsive: true,
+      maintainAspectRatio: false,
       layout: { padding: { top: 18 } },
       plugins: {
         legend: { display: false },
@@ -2803,6 +2812,7 @@ function renderStats() {
     plugins: [barLabelPlugin],
     options: {
       responsive: true,
+      maintainAspectRatio: false,
       layout: { padding: { top: 20 } },
       plugins: { legend: { position: 'bottom', labels: { font: { size: 12 }, padding: 12, color: chartLabel } } },
       scales: {
@@ -3142,6 +3152,7 @@ function renderDadStats(recs) {
     plugins: [dvMoneyLabelPlugin],
     options: {
       responsive: true,
+      maintainAspectRatio: false,
       layout: { padding: { top: 18 } },
       plugins: { legend:{display:false}, tooltip:{callbacks:{label:ctx=>ctx.raw.toLocaleString()+'원'}} },
       scales: {
@@ -3180,6 +3191,7 @@ function renderDadStats(recs) {
     plugins: [dvBarLabelPlugin],
     options: {
       responsive: true,
+      maintainAspectRatio: false,
       layout: { padding: { top: 18 } },
       plugins: { legend:{position:'bottom',labels:{font:{size:11},padding:10,color:dvChartLabel}} },
       scales: {
