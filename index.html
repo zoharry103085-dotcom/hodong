@@ -1674,8 +1674,75 @@ const db = createClient(SUPABASE_URL, SUPABASE_KEY);
   document.head.appendChild(s);
 })();
 
-// ── 설정 (카카오 키는 여전히 localStorage에) ──
+// ── 설정 (카카오 키/로그인 토큰은 Supabase app_settings 테이블에도 백업하여
+//     브라우저의 localStorage가 초기화(시크릿모드, 데이터 삭제, 기기 변경 등)되어도
+//     자동으로 복원되게 함) ──
 let settings = JSON.parse(localStorage.getItem('hodong_settings') || '{}');
+
+// 서버(app_settings)에서 카카오 키/토큰을 가져와 settings·localStorage에 반영
+async function pullServerSettings() {
+  try {
+    const { data, error } = await db.from('app_settings').select('*').eq('id', 'main').maybeSingle();
+    if (error || !data) return null;
+
+    if (data.kakao_key)      settings.kakaoKey     = data.kakao_key;
+    if (data.kakao_rest_key) settings.kakaoRestKey = data.kakao_rest_key;
+    if (data.dad_uuid)       settings.dadUuid      = data.dad_uuid;
+    localStorage.setItem('hodong_settings', JSON.stringify(settings));
+    refreshSettingsFields();
+
+    if (data.kakao_access_token) {
+      const localTok = JSON.parse(localStorage.getItem('hodong_kakao_tokens') || 'null');
+      const serverIsNewer = !localTok
+        || (data.kakao_expires_at || 0) > (localTok.expires_at || 0)
+        || (data.kakao_refresh_expires_at || 0) > (localTok.refresh_expires_at || 0);
+      if (serverIsNewer) {
+        localStorage.setItem('hodong_kakao_tokens', JSON.stringify({
+          access_token:       data.kakao_access_token,
+          refresh_token:      data.kakao_refresh_token,
+          expires_at:         data.kakao_expires_at,
+          refresh_expires_at: data.kakao_refresh_expires_at
+        }));
+      }
+    }
+    return data;
+  } catch (e) { console.error('설정 서버 동기화 실패', e); return null; }
+}
+
+// 카카오 토큰을 서버(app_settings)에 백업 — 다른 기기/브라우저나 로컬 저장소 초기화 후에도 로그인 유지
+async function pushServerTokens(stored) {
+  try {
+    await db.from('app_settings').update({
+      kakao_access_token:       stored.access_token,
+      kakao_refresh_token:      stored.refresh_token,
+      kakao_expires_at:         stored.expires_at,
+      kakao_refresh_expires_at: stored.refresh_expires_at,
+      updated_at: new Date().toISOString()
+    }).eq('id', 'main');
+  } catch (e) { console.error('토큰 서버 저장 실패', e); }
+}
+
+// 카카오 앱키/REST키/아빠 UUID를 서버(app_settings)에 백업
+async function pushServerSettingsKeys() {
+  try {
+    await db.from('app_settings').update({
+      kakao_key:      settings.kakaoKey     || null,
+      kakao_rest_key: settings.kakaoRestKey || null,
+      dad_uuid:       settings.dadUuid      || null,
+      updated_at: new Date().toISOString()
+    }).eq('id', 'main');
+  } catch (e) { console.error('설정 서버 저장 실패', e); }
+}
+
+// 설정 탭 입력값을 settings 값으로 다시 채움 (서버 동기화 후 갱신용)
+function refreshSettingsFields() {
+  const k = document.getElementById('kakao-app-key');
+  const r = document.getElementById('kakao-rest-key');
+  const d = document.getElementById('dad-uuid');
+  if (k) k.value = settings.kakaoKey     || '';
+  if (r) r.value = settings.kakaoRestKey || '';
+  if (d) d.value = settings.dadUuid      || '';
+}
 
 // 카카오 강제 로그인 후 복귀 시 토큰 자동 적용
 (function() {
@@ -1721,6 +1788,8 @@ if (confirmId) {
 } else {
   // 일반 앱
   loadRecords();
+  // 서버에 저장된 카카오 키/토큰 동기화 (카카오 SDK 로드 여부와 무관하게 즉시 시도)
+  pullServerSettings();
   // 카카오 SDK 로드 후 로그인 복원 (SDK가 이미 로드됐을 경우 대비)
   if (typeof Kakao !== 'undefined') setTimeout(() => restoreKakaoLogin(), 200);
 }
@@ -2396,10 +2465,14 @@ function _saveKakaoTokens(authObj) {
     refresh_expires_at:    Date.now() + (authObj.refresh_token_expires_in || 5184000) * 1000
   };
   localStorage.setItem('hodong_kakao_tokens', JSON.stringify(stored));
+  pushServerTokens(stored);
 }
 
 // ── 카카오 토큰 자동 복원 (페이지 로드 시) ──
 async function restoreKakaoLogin() {
+  // 로컬 저장소가 초기화됐을 수 있으니 서버(app_settings)에서 최신 키/토큰을 먼저 동기화
+  await pullServerSettings();
+
   // 카카오 키 없어도 UI는 반드시 업데이트
   if (!settings.kakaoKey || typeof Kakao === 'undefined') {
     updateKakaoLoginUI();
@@ -2441,6 +2514,7 @@ async function restoreKakaoLogin() {
             : stored.refresh_expires_at
         };
         localStorage.setItem('hodong_kakao_tokens', JSON.stringify(newStored));
+        pushServerTokens(newStored);
         Kakao.Auth.setAccessToken(data.access_token);
         updateKakaoLoginUI();
         return;
@@ -2461,6 +2535,15 @@ function kakaoLogout() {
   localStorage.setItem('hodong_force_login', '1');
   updateKakaoLoginUI();
   showToast('✅ 로그아웃 완료!');
+
+  // 서버에 저장된 토큰도 함께 제거 (재접속 시 자동으로 다시 로그인되는 것 방지)
+  db.from('app_settings').update({
+    kakao_access_token: null,
+    kakao_refresh_token: null,
+    kakao_expires_at: null,
+    kakao_refresh_expires_at: null,
+    updated_at: new Date().toISOString()
+  }).eq('id', 'main').then(() => {}).catch(() => {});
 }
 
 function kakaoLogin() {
@@ -2496,6 +2579,7 @@ function saveSettings() {
   settings.kakaoRestKey = document.getElementById('kakao-rest-key').value.trim();
   settings.dadUuid      = document.getElementById('dad-uuid').value.trim();
   localStorage.setItem('hodong_settings', JSON.stringify(settings));
+  pushServerSettingsKeys();
   showToast('✅ 설정 저장 완료!');
 }
 
