@@ -600,6 +600,40 @@
   .modal h3 { font-size: 17px; font-weight: 700; margin-bottom: 7px; color: var(--t1); }
   .modal p  { font-size: 13px; color: var(--t2); margin-bottom: 18px; }
 
+  /* ── PIN 잠금 화면 (QA #001) ── */
+  .pin-gate-overlay {
+    position: fixed; inset: 0; background: var(--bg);
+    z-index: 9999; display: none;
+    align-items: center; justify-content: center; padding: 24px;
+  }
+  .pin-gate-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 28px;
+    padding: 36px 28px;
+    box-shadow: var(--shadow-md);
+    width: 100%; max-width: 340px;
+    text-align: center;
+  }
+  .pin-gate-input {
+    width: 100%; margin-top: 8px;
+    background: var(--bg);
+    border: 1.5px solid var(--border2);
+    border-radius: 14px;
+    padding: 14px;
+    font-size: 24px; font-weight: 800;
+    letter-spacing: 10px; text-align: center;
+    color: var(--t1); outline: none;
+  }
+  .pin-gate-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(5,209,148,0.15); }
+  .pin-gate-btn {
+    width: 100%; margin-top: 18px; padding: 15px;
+    background: var(--accent); color: #fff;
+    border: none; border-radius: 16px;
+    font-size: 15px; font-weight: 800; cursor: pointer;
+  }
+  .pin-gate-btn:hover { filter: brightness(1.06); }
+
   /* ── 아빠 확인 페이지 ── */
   #dad-overlay {
     position: fixed; inset: 0; background: var(--bg);
@@ -1069,6 +1103,23 @@
 <body>
 
 <!-- ══════════════════════════════════════ -->
+<!-- PIN 잠금 화면 (QA #001 — 인증 없음 수정) -->
+<!-- ══════════════════════════════════════ -->
+<div id="pin-gate-overlay" class="pin-gate-overlay">
+  <div class="pin-gate-card">
+    <div style="font-size:52px; margin-bottom:14px">🔒</div>
+    <div style="font-size:20px; font-weight:800; color:var(--t1); margin-bottom:7px">호동이 프로젝트</div>
+    <div style="font-size:13px; color:var(--t2); margin-bottom:10px">비밀번호 6자리를 입력하세요</div>
+    <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" id="pin-gate-input"
+      class="pin-gate-input" placeholder="••••••"
+      oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,6); document.getElementById('pin-gate-error').style.display='none';"
+      onkeydown="if(event.key==='Enter') checkPinGate()" />
+    <div id="pin-gate-error" style="color:var(--red); font-size:12px; margin-top:10px; display:none">❌ 비밀번호가 틀렸어요</div>
+    <button class="pin-gate-btn" onclick="checkPinGate()">확인</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════ -->
 <!-- 아빠 확인 페이지 (링크 클릭 시 표시)      -->
 <!-- ══════════════════════════════════════ -->
 <div id="dad-overlay">
@@ -1253,7 +1304,7 @@
     <p class="adv-m-desc">아빠가 직접 선금을 지급해요. 이후 호동이 용돈에서 자동으로 차감돼요.</p>
     <label style="font-size:12px; font-weight:700; color:var(--t2); display:block; margin-bottom:8px">지급 금액</label>
     <input class="advance-amount-input" type="text" id="dv-advance-amount" placeholder="0" inputmode="numeric"
-      onfocus="focusMoneyInput(this)" onblur="blurMoneyInput(this)" />
+      onfocus="focusMoneyInput(this)" onblur="blurMoneyInput(this)" oninput="sanitizeMoneyInput(this)" />
     <label style="font-size:12px; font-weight:700; color:var(--t2); display:block; margin-bottom:8px">메모 (선택)</label>
     <textarea class="advance-note-input" id="dv-advance-note" placeholder="예: 여름 방학 여행 선금 지급 등..."></textarea>
     <div class="advance-modal-btns">
@@ -1465,9 +1516,9 @@
     <div class="settings-card">
       <div class="section-title"><span class="s-icon" style="background:#E6FBF3">💰</span>용돈 금액 설정</div>
       <label>🐕 산책 1회 금액</label>
-      <input type="text" id="walk-price" placeholder="20,000원" onfocus="focusMoneyInput(this)" onblur="blurMoneyInput(this)" />
+      <input type="text" id="walk-price" placeholder="20,000원" onfocus="focusMoneyInput(this)" onblur="blurMoneyInput(this)" oninput="sanitizeMoneyInput(this)" />
       <label style="margin-top:12px; display:block">🧹 화장실 청소 1회당 금액</label>
-      <input type="text" id="clean-price" placeholder="50,000원" onfocus="focusMoneyInput(this)" onblur="blurMoneyInput(this)" />
+      <input type="text" id="clean-price" placeholder="50,000원" onfocus="focusMoneyInput(this)" onblur="blurMoneyInput(this)" oninput="sanitizeMoneyInput(this)" />
       <button class="save-btn" onclick="savePrices()">금액 저장</button>
     </div>
 
@@ -1593,7 +1644,7 @@
     <label style="font-size:12px; color:var(--t2); font-weight:600; display:block; margin-top:12px">활동 이름</label>
     <input class="amount-input" type="text" id="ci-name" placeholder="예: 설거지" />
     <label style="font-size:12px; color:var(--t2); font-weight:600; display:block; margin-top:12px">완료 1회당 금액</label>
-    <input class="amount-input" type="text" id="ci-amount" placeholder="10,000원" onfocus="focusMoneyInput(this)" onblur="blurMoneyInput(this)" />
+    <input class="amount-input" type="text" id="ci-amount" placeholder="10,000원" onfocus="focusMoneyInput(this)" onblur="blurMoneyInput(this)" oninput="sanitizeMoneyInput(this)" />
     <label style="font-size:12px; color:var(--t2); font-weight:600; display:block; margin-top:12px">완료 방식</label>
     <div style="display:flex; gap:8px; margin-top:6px">
       <label style="flex:1; display:flex; align-items:center; gap:6px; padding:10px; border:1px solid var(--border2); border-radius:10px; font-size:13px; font-weight:600; color:var(--t2); cursor:pointer">
@@ -1628,7 +1679,7 @@
     <p class="adv-m-desc">여행이나 급하게 필요한 경우, 아빠한테 선금을 요청할 수 있어요.<br>선금은 이후 용돈에서 자동으로 깎여요.</p>
     <label style="font-size:12px; font-weight:700; color:var(--t2); display:block; margin-bottom:8px">요청 금액</label>
     <input class="advance-amount-input" type="text" id="advance-req-amount" placeholder="0" inputmode="numeric"
-      onfocus="focusMoneyInput(this)" onblur="blurMoneyInput(this)" />
+      onfocus="focusMoneyInput(this)" onblur="blurMoneyInput(this)" oninput="sanitizeMoneyInput(this)" />
     <label style="font-size:12px; font-weight:700; color:var(--t2); display:block; margin-bottom:8px">사유 (선택)</label>
     <textarea class="advance-note-input" id="advance-req-note" placeholder="예: 친구 여행 경비, 운동복 구매 등..."></textarea>
     <div class="advance-modal-btns">
@@ -1776,30 +1827,68 @@ let dadTargetId = null; // 아빠 확인 페이지에서 사용할 record id
 
 // ══════════════════════════════════════════
 // URL 파라미터 체크 → 아빠 확인 페이지 or 일반 앱
+// (PIN 인증 통과 후에만 실행됨 — 아래 "PIN 잠금" 섹션 참고)
 // ══════════════════════════════════════════
 const urlParams = new URLSearchParams(window.location.search);
 const confirmId = urlParams.get('confirm');
 const dadView   = urlParams.get('dadview') === 'true';
 
-if (confirmId) {
-  // 아빠 개별 확인 페이지
-  document.getElementById('dad-overlay').classList.add('show');
-  document.getElementById('main-app').style.display = 'none';
-  initDadPage(confirmId);
-} else if (dadView) {
-  // 아빠 읽기 전용 뷰
-  document.getElementById('dad-view-overlay').classList.add('show');
-  document.getElementById('main-app').style.display = 'none';
-  const dvBtn = document.getElementById('dv-dark-btn');
-  if (dvBtn) dvBtn.textContent = document.body.classList.contains('dark') ? '☀️' : '🌙';
-  loadDadView();
+function bootAppAfterAuth() {
+  if (confirmId) {
+    // 아빠 개별 확인 페이지
+    document.getElementById('dad-overlay').classList.add('show');
+    document.getElementById('main-app').style.display = 'none';
+    initDadPage(confirmId);
+  } else if (dadView) {
+    // 아빠 읽기 전용 뷰
+    document.getElementById('dad-view-overlay').classList.add('show');
+    document.getElementById('main-app').style.display = 'none';
+    const dvBtn = document.getElementById('dv-dark-btn');
+    if (dvBtn) dvBtn.textContent = document.body.classList.contains('dark') ? '☀️' : '🌙';
+    loadDadView();
+  } else {
+    // 일반 앱
+    loadRecords();
+    // 서버에 저장된 카카오 키/토큰 동기화 (카카오 SDK 로드 여부와 무관하게 즉시 시도)
+    pullServerSettings();
+    // 카카오 SDK 로드 후 로그인 복원 (SDK가 이미 로드됐을 경우 대비)
+    if (typeof Kakao !== 'undefined') setTimeout(() => restoreKakaoLogin(), 200);
+  }
+}
+
+// ══════════════════════════════════════════
+// PIN 잠금 (QA #001 — 인증 없음 수정, 2026-07-26)
+// 앱의 실제 데이터 로딩/렌더링은 PIN 통과 전까지 시작되지 않음.
+// PIN은 SHA-256 해시로만 비교 — 소스에 평문으로 남지 않음.
+// (완전한 서버 인증은 아니며, 우연히 링크를 본 사람을 막는 용도)
+// ══════════════════════════════════════════
+const PIN_GATE_HASH = '90c6a366008d2baa9bfbd2c60927306ca315df14a56682a851e669f957693f0d';
+
+async function sha256Hex(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function checkPinGate() {
+  const input = document.getElementById('pin-gate-input');
+  const hash = await sha256Hex(input.value.trim());
+  if (hash === PIN_GATE_HASH) {
+    localStorage.setItem('hodong_authed', 'true');
+    document.getElementById('pin-gate-overlay').style.display = 'none';
+    bootAppAfterAuth();
+  } else {
+    document.getElementById('pin-gate-error').style.display = 'block';
+    input.value = '';
+    input.focus();
+  }
+}
+
+if (localStorage.getItem('hodong_authed') === 'true') {
+  bootAppAfterAuth();
 } else {
-  // 일반 앱
-  loadRecords();
-  // 서버에 저장된 카카오 키/토큰 동기화 (카카오 SDK 로드 여부와 무관하게 즉시 시도)
-  pullServerSettings();
-  // 카카오 SDK 로드 후 로그인 복원 (SDK가 이미 로드됐을 경우 대비)
-  if (typeof Kakao !== 'undefined') setTimeout(() => restoreKakaoLogin(), 200);
+  document.getElementById('pin-gate-overlay').style.display = 'flex';
+  document.getElementById('main-app').style.display = 'none';
+  setTimeout(() => document.getElementById('pin-gate-input').focus(), 100);
 }
 
 // ══════════════════════════════════════════
@@ -3282,6 +3371,11 @@ function deleteCustomItem() {
 }
 
 // ── 입력란 금액 포맷팅 ──
+// (QA #008) 타이핑 도중에도 숫자 외 문자는 즉시 제거 — blur 시점까지 기다리지 않음
+function sanitizeMoneyInput(input) {
+  const digits = input.value.replace(/[^0-9]/g, '');
+  if (input.value !== digits) input.value = digits;
+}
 function focusMoneyInput(input) {
   // 포커스 시: 숫자만 남겨서 편집 가능하게
   input.value = input.value.replace(/[^0-9]/g, '');
