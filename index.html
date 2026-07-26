@@ -1848,6 +1848,10 @@ function bootAppAfterAuth() {
     loadDadView();
   } else {
     // 일반 앱
+    // (QA #001 재검증 중 발견) PIN 통과 직후에도 main-app이 계속 숨겨진 채로
+    // 남아있던 버그 수정 — 부팅 시 PIN 미인증 상태면 main-app을 display:none 처리하는데,
+    // 이 분기(일반 앱)에서는 그걸 되돌리는 코드가 없어서 인증 성공 후 흰 화면만 보였음.
+    document.getElementById('main-app').style.display = '';
     loadRecords();
     // 서버에 저장된 카카오 키/토큰 동기화 (카카오 SDK 로드 여부와 무관하게 즉시 시도)
     pullServerSettings();
