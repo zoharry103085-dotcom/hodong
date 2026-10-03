@@ -1145,6 +1145,7 @@
       <div id="dad-reject-form" style="display:none; margin-top:16px; text-align:left">
         <textarea class="dad-textarea" id="dad-reject-reason" placeholder="취소 이유를 입력해주세요..."></textarea>
         <button class="dad-submit-btn" onclick="dadReject()">취소 사유 제출</button>
+        <button class="dad-btn-reject" style="margin-top:8px" onclick="dadCancelReject()">← 돌아가기</button>
       </div>
     </div>
 
@@ -1215,7 +1216,7 @@
         <div class="dv-val" id="dv-pending-count">0건</div>
       </div>
       <div class="dv-card" style="text-align:left">
-        <div class="dv-label" style="margin-bottom:8px">🐕 마지막 수령 이후 산책</div>
+        <div class="dv-label" style="margin-bottom:8px">🐕 수령 전 산책</div>
         <div style="display:flex; align-items:baseline; gap:6px; flex-wrap:wrap">
           <span style="font-size:20px; font-weight:800; color:var(--t1); letter-spacing:-0.5px" id="dv-cur-walk">0회</span>
           <span style="font-size:15px; font-weight:700; color:var(--accent)" id="dv-cur-walk-money">0원</span>
@@ -1223,7 +1224,7 @@
         <div class="dv-sub" id="dv-cur-since" style="margin-top:6px">수령 이후</div>
       </div>
       <div class="dv-card" style="text-align:left">
-        <div class="dv-label" style="margin-bottom:8px">🧹 마지막 수령 이후 청소</div>
+        <div class="dv-label" style="margin-bottom:8px">🧹 수령 전 청소</div>
         <div style="display:flex; align-items:baseline; gap:6px; flex-wrap:wrap">
           <span style="font-size:20px; font-weight:800; color:var(--t1); letter-spacing:-0.5px" id="dv-cur-clean">0회</span>
           <span style="font-size:15px; font-weight:700; color:var(--accent)" id="dv-cur-clean-money">0원</span>
@@ -1747,8 +1748,13 @@ async function pullServerSettings() {
     if (data.kakao_key)      settings.kakaoKey     = data.kakao_key;
     if (data.kakao_rest_key) settings.kakaoRestKey = data.kakao_rest_key;
     if (data.dad_uuid)       settings.dadUuid      = data.dad_uuid;
+    // (QA #013) 서버에 저장된 금액·커스텀 활동이 있으면 이 기기에도 반영
+    if (data.walk_price)  settings.walkPrice  = data.walk_price;
+    if (data.clean_price) settings.cleanPrice = data.clean_price;
+    if (Array.isArray(data.custom_items)) settings.customItems = data.custom_items;
     localStorage.setItem('hodong_settings', JSON.stringify(settings));
     refreshSettingsFields();
+    if (typeof render === 'function' && document.getElementById('main-app').style.display !== 'none') render();
 
     if (data.kakao_access_token) {
       const localTok = JSON.parse(localStorage.getItem('hodong_kakao_tokens') || 'null');
@@ -1791,6 +1797,17 @@ async function pushServerSettingsKeys() {
       updated_at: new Date().toISOString()
     }).eq('id', 'main');
   } catch (e) { console.error('설정 서버 저장 실패', e); }
+}
+
+// (QA #013) 산책/청소 금액·커스텀 활동을 서버에 저장 → 어느 기기에서 열어도 같은 값.
+// 바뀐 항목만 보냄(다른 기기의 값을 빈 값으로 덮어쓰지 않도록).
+// app_settings에 walk_price / clean_price / custom_items 컬럼이 있어야 동작 — 없으면 false 반환(이 기기에는 저장됨).
+async function pushServerAppPrefs(fields) {
+  try {
+    const { error } = await db.from('app_settings').update({ ...fields, updated_at: new Date().toISOString() }).eq('id', 'main');
+    if (error) { console.warn('금액/활동 서버 저장 실패 (app_settings 컬럼 추가 필요):', error.message); return false; }
+    return true;
+  } catch (e) { console.error('금액/활동 서버 저장 실패', e); return false; }
 }
 
 // 설정 탭 입력값을 settings 값으로 다시 채움 (서버 동기화 후 갱신용)
@@ -1902,14 +1919,19 @@ async function initDadPage(id) {
   try {
     const { data, error } = await db.from('tasks').select('*').eq('id', id).single();
     if (error || !data) throw new Error('not found');
+    normRec(data);
+    dadTargetType = parseTask(data).type;
 
     document.getElementById('dad-loading').style.display = 'none';
 
     // 이미 처리된 경우
     if (data.status !== 'pending') {
       document.getElementById('dad-already').style.display = 'block';
+      const isAdv = data.task_name === 'advance';
       const msg = data.status === 'approved'
-        ? '✅ 이미 확인되어 용돈이 지급됐어요'
+        ? (isAdv ? '✅ 이미 승인된 선금이에요' : '✅ 이미 확인되어 용돈이 확정됐어요')
+        : data.status === 'paid'
+        ? '💜 이미 정산(수령)까지 끝난 항목이에요'
         : `❌ 이미 취소됨 — 사유: ${data.cancel_reason || '사유 없음'}`;
       document.getElementById('dad-already-msg').textContent = msg;
       return;
@@ -1934,7 +1956,10 @@ async function initDadPage(id) {
 
     document.getElementById('dad-icon').textContent   = dadIcon;
     document.getElementById('dad-title').textContent  = dadTitle;
-    document.getElementById('dad-date').textContent   = formatDate(data.created_at);
+    const dadDateEl = document.getElementById('dad-date');
+    dadDateEl.style.whiteSpace = 'pre-line';
+    // (QA #021) 선금 요청 사유가 승인 화면에 안 보이던 문제
+    dadDateEl.textContent = formatDate(data.created_at) + (type === 'advance' && data.cancel_reason ? `\n📝 ${data.cancel_reason}` : '');
     document.getElementById('dad-amount').textContent = formatMoney(data.amount);
     document.getElementById('dad-main').style.display = 'block';
 
@@ -1961,9 +1986,11 @@ async function dadConfirm() {
     if (error) throw error;
     document.getElementById('dad-main').style.display = 'none';
     document.getElementById('dad-done').style.display = 'block';
-    document.getElementById('dad-done-icon').textContent = '🎉';
-    document.getElementById('dad-done-msg').textContent  = '용돈 확인 완료!';
-    document.getElementById('dad-done-sub').textContent  = '잘 했어요! 용돈이 추가됐어요.';
+    // (QA #021) 선금 승인인데 '용돈이 추가됐어요'로 나오던 문구 수정
+    const isAdv = dadTargetType === 'advance';
+    document.getElementById('dad-done-icon').textContent = isAdv ? '💴' : '🎉';
+    document.getElementById('dad-done-msg').textContent  = isAdv ? '선금 지급 완료!' : '용돈 확인 완료!';
+    document.getElementById('dad-done-sub').textContent  = isAdv ? '앞으로 번 용돈에서 자동으로 상환돼요.' : '잘 했어요! 용돈이 추가됐어요.';
     setTimeout(dadGoBack, 2000);
   } catch(e) {
     document.getElementById('dad-actions').style.display = 'block';
@@ -1971,9 +1998,15 @@ async function dadConfirm() {
   }
 }
 
+var dadTargetType = null; // (QA #021) 확인 페이지에서 처리 중인 기록 종류
 function dadShowReject() {
   document.getElementById('dad-actions').style.display = 'none';
   document.getElementById('dad-reject-form').style.display = 'block';
+}
+// (QA #024) 거절 화면에서 되돌아갈 방법이 없던 문제
+function dadCancelReject() {
+  document.getElementById('dad-reject-form').style.display = 'none';
+  document.getElementById('dad-actions').style.display = 'block';
 }
 
 async function dadReject() {
@@ -1996,9 +2029,14 @@ async function dadReject() {
 // 메인 앱 함수들
 // ══════════════════════════════════════════
 async function loadRecords() {
-  const { data, error } = await db.from('tasks').select('*').order('created_at', { ascending: false });
-  if (!error && data) records = data;
+  let ok = false;
+  try {
+    const { data, error } = await db.from('tasks').select('*').order('created_at', { ascending: false });
+    if (!error && data) { records = normRecs(data); ok = true; }
+    setServerError(!ok, error);
+  } catch (e) { setServerError(true, e); }
   render();
+  return ok;
 }
 
 // ── 새로고침 ──
@@ -2006,8 +2044,8 @@ async function refreshData() {
   const btn = document.getElementById('refresh-btn');
   if (btn) { btn.classList.add('spinning'); btn.disabled = true; }
   try {
-    await loadRecords();
-    showToast('🔄 최신 데이터로 새로고침 했어요');
+    const ok = await loadRecords();
+    showToast(ok ? '🔄 최신 데이터로 새로고침 했어요' : '❌ 서버 연결 실패 - 잠시 후 다시 시도해주세요');
   } catch (e) {
     showToast('❌ 새로고침 실패 - 잠시 후 다시 시도해주세요');
   } finally {
@@ -2016,14 +2054,14 @@ async function refreshData() {
 }
 
 // ── 날짜 유틸 ──
-function today() { return new Date().toISOString().slice(0, 10); }
+function today() { return localDateStr(new Date()); } // (QA #014) UTC → 로컬 날짜
 
 function thisWeekStr() {
   const d   = new Date();
   const day  = d.getDay();
   const mon  = new Date(d);
   mon.setDate(d.getDate() - day + (day === 0 ? -6 : 1));
-  return mon.toISOString().slice(0, 10);
+  return localDateStr(mon);
 }
 
 function formatDate(iso) {
@@ -2033,6 +2071,52 @@ function formatDate(iso) {
 
 function formatMoney(n) { return Number(n).toLocaleString() + '원'; }
 
+// ── (QA #014) 시간대 보정 ──
+// Supabase tasks.created_at은 타임존 표기 없는 UTC 문자열(예: "2026-10-02T01:44:54.849228")로 내려옴.
+// 브라우저가 이를 한국시간으로 오해해 9시간 일찍 표시·집계하던 문제 → 불러오는 시점에 한 번만 로컬시간 문자열로 변환.
+// 변환 후 형식은 기존과 같은 "YYYY-MM-DDTHH:mm:ss.sss"라서 기존 slice/startsWith 비교 코드가 그대로 로컬 날짜 기준으로 동작함.
+function pad2(n) { return String(n).padStart(2, '0'); }
+function localDateStr(d) { return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
+function toLocalIso(ts) {
+  if (!ts || typeof ts !== 'string') return ts;
+  let t = ts.replace(' ', 'T').replace(/(\.\d{3})\d+/, '$1'); // iOS Safari 호환: 소수점 3자리로 자름
+  if (!/([zZ]|[+-]\d{2}:?\d{2})$/.test(t)) t += 'Z';            // 타임존 없으면 UTC로 간주
+  const d = new Date(t);
+  if (isNaN(d)) return ts;
+  return `${localDateStr(d)}T${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}.${String(d.getMilliseconds()).padStart(3,'0')}`;
+}
+function normRec(r) {
+  if (r && r.created_at && !r._tz) { r.created_at = toLocalIso(r.created_at); r._tz = true; }
+  return r;
+}
+function normRecs(arr) { (arr || []).forEach(normRec); return arr; }
+
+// ── (QA #012) '번 돈' = 확정·수령된 활동만. 선금(advance)은 빌린 돈이라 제외 ──
+function isEarned(r) { return (r.status === 'approved' || r.status === 'paid') && r.task_name !== 'advance'; }
+// ── (QA #016) 활동 횟수 = 취소된 기록과 선금 제외 ──
+function isActivity(r) { return r.status !== 'rejected' && r.task_name !== 'advance'; }
+// ── (QA #023) 청소 개수 합계 (clean:2 → 2개) ──
+function cleanUnits(recs) { return recs.reduce((s, r) => s + (parseInt(r.task_name.split(':')[1] || '1') || 1), 0); }
+// ── (QA #020) 호동이가 직접 취소한 기록인지 ──
+function isSelfCancel(r) { return r.status === 'rejected' && typeof r.cancel_reason === 'string' && r.cancel_reason.startsWith('직접 취소'); }
+
+// ── (QA #011) 서버 연결 실패 배너 ──
+// 예전엔 Supabase가 정지돼도 아무 경고 없이 0원만 보여서 데이터가 날아간 줄 착각하게 됐음.
+function setServerError(on, err) {
+  let el = document.getElementById('server-error-banner');
+  if (!on) { if (el) el.remove(); return; }
+  if (err) console.error('서버 연결 실패', err);
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'server-error-banner';
+    el.style.cssText = 'position:fixed;left:12px;right:12px;top:12px;z-index:5000;background:#F04452;color:#fff;' +
+      'padding:12px 14px;border-radius:14px;font-size:13px;font-weight:700;line-height:1.5;box-shadow:0 8px 24px rgba(0,0,0,0.25);text-align:center';
+    el.innerHTML = '⚠️ 서버에 연결할 수 없어요<br><span style="font-weight:500;font-size:12px">지금 보이는 금액·내역은 실제와 달라요. 잠시 후 🔄 새로고침해 주세요.<br>계속되면 Supabase 프로젝트가 일시정지됐는지 확인하세요.</span>';
+    el.onclick = () => el.remove();
+    document.body.appendChild(el);
+  }
+}
+
 // ── UI 렌더 ──
 function render() {
   const now      = today();
@@ -2040,17 +2124,17 @@ function render() {
   const monthStr = now.slice(0, 7);
 
   // 산책 통계
-  const walkAll      = records.filter(r => r.task_name === 'walk' && r.created_at.startsWith(monthStr));
+  const walkAll      = records.filter(r => r.task_name === 'walk' && isActivity(r) && r.created_at.startsWith(monthStr));
   const walkApproved = walkAll.filter(r => r.status === 'approved');
   document.getElementById('walk-earned').textContent = formatMoney(walkApproved.reduce((s,r)=>s+r.amount,0));
   document.getElementById('walk-count').textContent  = `이번달 ${walkAll.length}회 완료 · 확정 ${walkApproved.length}회`;
 
   // 청소 통계
-  const cleanAll      = records.filter(r => r.task_name.startsWith('clean') && r.created_at.slice(0,10) >= week);
+  const cleanAll      = records.filter(r => r.task_name.startsWith('clean') && isActivity(r) && r.created_at.slice(0,10) >= week);
   const cleanApproved = cleanAll.filter(r => r.status === 'approved');
-  const cleanCount    = cleanApproved.reduce((s, r) => s + parseInt(r.task_name.split(':')[1] || '1'), 0);
+  const cleanCount    = cleanUnits(cleanApproved);
   document.getElementById('clean-earned').textContent = formatMoney(cleanApproved.reduce((s,r)=>s+r.amount,0));
-  document.getElementById('clean-count').textContent  = `이번주 ${cleanAll.length}회 완료 · 확정 ${cleanCount}개`;
+  document.getElementById('clean-count').textContent  = `이번주 ${cleanUnits(cleanAll)}개 완료 · 확정 ${cleanCount}개`; // (QA #023) 단위 '개'로 통일
 
   // 커스텀 활동 카드
   renderCustomCards(monthStr);
@@ -2067,13 +2151,10 @@ function render() {
   // 헤더 금액 표시
   const totalAmountEl = document.getElementById('total-amount');
   if (advanceOwed > 0) {
-    if (netBalance >= 0) {
-      totalAmountEl.textContent = formatMoney(netBalance);
-      totalAmountEl.style.color = '';
-    } else {
-      totalAmountEl.textContent = '-' + formatMoney(Math.abs(netBalance));
-      totalAmountEl.style.color = 'var(--red)';
-    }
+    // (QA #015) 선금이 남아 있으면 '미수령 금액'이 마이너스로 보이던 문제 → 받을 돈이 없으면 0원.
+    // 남은 선금은 아래 선금 배너에서 따로 보여줌.
+    totalAmountEl.textContent = formatMoney(Math.max(0, netBalance));
+    totalAmountEl.style.color = '';
   } else {
     totalAmountEl.textContent = formatMoney(totalApproved);
     totalAmountEl.style.color = '';
@@ -2113,6 +2194,7 @@ function render() {
   // 알림 뱃지 (미확인 = approved/rejected 중 최근 7일)
   const recentNotif = records.filter(r => {
     if (r.status !== 'approved' && r.status !== 'rejected') return false;
+    if (isSelfCancel(r)) return false; // (QA #020) 내가 직접 취소한 건 알림이 아님
     const diffDays = (Date.now() - new Date(r.created_at)) / 86400000;
     return diffDays <= 7;
   }).length;
@@ -2127,13 +2209,13 @@ function render() {
   const todayDateObj = new Date();
   const dashTodayDateEl = document.getElementById('dash-today-date');
   if (dashTodayDateEl) dashTodayDateEl.textContent = `${todayDateObj.getMonth()+1}월 ${todayDateObj.getDate()}일 (${dayNames[todayDateObj.getDay()]})`;
-  const todayRecs   = records.filter(r => r.created_at.startsWith(todayStr));
+  const todayRecs   = records.filter(r => r.created_at.startsWith(todayStr) && isActivity(r));
   const todayWalks  = todayRecs.filter(r => r.task_name === 'walk');
   const todayCleans = todayRecs.filter(r => r.task_name.startsWith('clean'));
   const dashTodayWalkEl  = document.getElementById('dash-today-walk');
   const dashTodayCleanEl = document.getElementById('dash-today-clean');
   if (dashTodayWalkEl)  dashTodayWalkEl.textContent  = todayWalks.length + '회';
-  if (dashTodayCleanEl) dashTodayCleanEl.textContent = todayCleans.length + '회';
+  if (dashTodayCleanEl) dashTodayCleanEl.textContent = cleanUnits(todayCleans) + '개';
   const dashTodayCustomEl = document.getElementById('dash-today-custom');
   if (dashTodayCustomEl) {
     const customTypes = extractCustomTypes(records);
@@ -2217,7 +2299,7 @@ function render() {
                 <div class="money" style="color:${advColorMap[r.status]}">${formatMoney(r.amount)}</div>
                 <span class="status-chip advance">${advStatusMap[r.status] || r.status}</span>
               </div>
-              <button class="del-btn" onclick="deleteRecord('${r.id}')" title="삭제">🗑️</button>
+              ${canDelete(r) ? `<button class="del-btn" onclick="deleteRecord('${r.id}')" title="삭제">🗑️</button>` : ''}
             </div>`;
         }).join('')}
       </div>`;
@@ -2242,7 +2324,7 @@ function render() {
                   <span class="status-chip ${r.status}">${statusMap[r.status]}</span>
                 </div>
                 ${r.status === 'pending' ? `<button class="edit-btn" onclick="openAmountModal('${r.id}', ${r.amount})" title="금액수정">✏️</button>` : ''}
-                <button class="del-btn" onclick="deleteRecord('${r.id}')" title="삭제">🗑️</button>
+                ${canDelete(r) ? `<button class="del-btn" onclick="deleteRecord('${r.id}')" title="삭제">🗑️</button>` : ''}
               </div>`;
           }).join('')}
         </div>`;
@@ -2359,11 +2441,12 @@ function exportCSV() {
 }
 
 // ── 액션 확인 모달 ──
-function showActionConfirm(icon, title, sub, onConfirm) {
+function showActionConfirm(icon, title, sub, onConfirm, okLabel) {
   document.getElementById('acm-icon').textContent = icon;
   document.getElementById('acm-title').textContent = title;
   document.getElementById('acm-sub').textContent = sub;
   const btn = document.getElementById('acm-confirm-btn');
+  btn.textContent = okLabel || '완료!'; // (QA #018) 삭제 확인 버튼이 '완료!'로 뜨던 문제
   btn.onclick = () => { closeActionConfirm(); onConfirm(); };
   document.getElementById('action-confirm-modal').classList.add('show');
 }
@@ -2384,7 +2467,7 @@ function doAction(type) {
     const { data, error } = await db.from('tasks').insert({ task_name: 'walk', amount: walkAmt, status: 'pending' }).select().single();
     btn.disabled = false;
     if (error) { showToast('❌ 저장 실패: ' + error.message); return; }
-    records.unshift(data);
+    records.unshift(normRec(data));
     render();
     sendKakaoMessage(data);
     showToast('🐕 산책 완료! 아빠한테 알림 전송중...');
@@ -2419,7 +2502,7 @@ async function doClean(count) {
   const cleanAmt = (settings.cleanPrice || 50000) * count;
   const { data, error } = await db.from('tasks').insert({ task_name: `clean:${count}`, amount: cleanAmt, status: 'pending' }).select().single();
   if (error) { showToast('❌ 저장 실패: ' + error.message); return; }
-  records.unshift(data);
+  records.unshift(normRec(data));
   render();
   sendKakaoMessage(data);
   showToast(`🧹 화장실 ${count}개 청소 완료! 알림 전송중...`);
@@ -2432,7 +2515,7 @@ function renderCustomCards(monthStr) {
   if (items.length === 0) { container.innerHTML = ''; return; }
 
   container.innerHTML = items.map(it => {
-    const all      = records.filter(r => r.task_name.startsWith(`custom|${it.id}|`) && r.created_at.startsWith(monthStr));
+    const all      = records.filter(r => r.task_name.startsWith(`custom|${it.id}|`) && isActivity(r) && r.created_at.startsWith(monthStr));
     const approved = all.filter(r => r.status === 'approved');
     const earned   = approved.reduce((s, r) => s + r.amount, 0);
     const actionLabel = it.mode === 'count' ? `${it.name} 완료!` : `${it.name} 완료!`;
@@ -2465,7 +2548,7 @@ async function _execCustomAction(id) {
   const taskName = `custom|${id}|${item.icon}|${item.name}|1`;
   const { data, error } = await db.from('tasks').insert({ task_name: taskName, amount: item.amount, status: 'pending' }).select().single();
   if (error) { showToast('❌ 저장 실패: ' + error.message); return; }
-  records.unshift(data);
+  records.unshift(normRec(data));
   render();
   sendKakaoMessage(data);
   showToast(`${item.icon} ${item.name} 완료! 아빠한테 알림 전송중...`);
@@ -2499,21 +2582,21 @@ async function doCustomCount(id, count) {
   const taskName = `custom|${id}|${item.icon}|${item.name}|${count}`;
   const { data, error } = await db.from('tasks').insert({ task_name: taskName, amount, status: 'pending' }).select().single();
   if (error) { showToast('❌ 저장 실패: ' + error.message); return; }
-  records.unshift(data);
+  records.unshift(normRec(data));
   render();
   sendKakaoMessage(data);
   showToast(`${item.icon} ${item.name} ${count}개 완료! 알림 전송중...`);
 }
 
 // ── 카카오 메시지 (링크 포함) ──
-function sendKakaoMessage(record) {
+function sendKakaoMessage(record, note) {
   if (!settings.kakaoKey) { showToast('⚠️ 설정 탭에서 카카오 앱 키를 먼저 입력하세요'); return; }
   if (typeof Kakao === 'undefined') { showToast('⚠️ 카카오 SDK 로딩 실패'); return; }
   if (!Kakao.isInitialized()) Kakao.init(settings.kakaoKey);
 
   const { label } = parseTask(record);
   const confirmLink = `${APP_URL}?confirm=${record.id}`;
-  const msgText = `[호동이 프로젝트]\n${label} 완료!\n${formatDate(record.created_at)} · ${formatMoney(record.amount)}\n\n👇 아래 링크에서 확인/취소해주세요!\n${confirmLink}`;
+  const msgText = `[호동이 프로젝트]\n${label} 완료!\n${formatDate(record.created_at)} · ${formatMoney(record.amount)}${note ? '\n' + note : ''}\n\n👇 아래 링크에서 확인/취소해주세요!\n${confirmLink}`;
 
   Kakao.API.request({
     url: '/v2/api/talk/memo/default/send',
@@ -2765,11 +2848,11 @@ function renderStats() {
   const days = ['일','월','화','수','목','금','토'];
   const dObj = new Date();
   document.getElementById('dash-today-date').textContent = `${dObj.getMonth()+1}월 ${dObj.getDate()}일 (${days[dObj.getDay()]})`;
-  const todayRecs   = records.filter(r => r.created_at.startsWith(todayStr));
+  const todayRecs   = records.filter(r => r.created_at.startsWith(todayStr) && isActivity(r));
   const todayWalks  = todayRecs.filter(r => r.task_name === 'walk');
   const todayCleans = todayRecs.filter(r => r.task_name.startsWith('clean'));
   document.getElementById('dash-today-walk').textContent  = todayWalks.length + '회';
-  document.getElementById('dash-today-clean').textContent = todayCleans.length + '회';
+  document.getElementById('dash-today-clean').textContent = cleanUnits(todayCleans) + '개';
 
   // 커스텀 항목 종류 (전체 레코드에서 추출 — 항목이 삭제돼도 과거 통계는 유지)
   const customTypes = extractCustomTypes(records);
@@ -2783,7 +2866,7 @@ function renderStats() {
     </div>`).join('');
 
   // 이번달 요약 (선금 제외)
-  const thisRecs     = records.filter(r => r.created_at.startsWith(now) && r.task_name !== 'advance');
+  const thisRecs     = records.filter(r => r.created_at.startsWith(now) && isActivity(r)); // 선금·취소 제외
   const thisApproved = thisRecs.filter(r => r.status === 'approved' || r.status === 'paid');
   const thisPending  = thisRecs.filter(r => r.status === 'pending');
   const thisWalks    = thisRecs.filter(r => r.task_name === 'walk');
@@ -2807,10 +2890,10 @@ function renderStats() {
   }).join('');
 
   // 월별 집계 (선금 제외)
-  const monthMoney  = months.map(m => records.filter(r => r.created_at.startsWith(m) && (r.status === 'approved' || r.status === 'paid') && r.task_name !== 'advance').reduce((s,r)=>s+r.amount,0));
-  const monthWalks  = months.map(m => records.filter(r => r.created_at.startsWith(m) && r.task_name === 'walk').length);
-  const monthCleans = months.map(m => records.filter(r => r.created_at.startsWith(m) && r.task_name.startsWith('clean')).length);
-  const monthCustom = customTypes.map(ct => months.map(m => records.filter(r => r.created_at.startsWith(m) && ct.match(r)).length));
+  const monthMoney  = months.map(m => records.filter(r => r.created_at.startsWith(m) && isEarned(r)).reduce((s,r)=>s+r.amount,0));
+  const monthWalks  = months.map(m => records.filter(r => r.created_at.startsWith(m) && isActivity(r) && r.task_name === 'walk').length);
+  const monthCleans = months.map(m => records.filter(r => r.created_at.startsWith(m) && isActivity(r) && r.task_name.startsWith('clean')).length);
+  const monthCustom = customTypes.map(ct => months.map(m => records.filter(r => r.created_at.startsWith(m) && isActivity(r) && ct.match(r)).length));
   const labels      = months.map(monthLabel);
 
   // 다크모드 여부에 따른 차트 색상 (라이트/다크 모두 잘 보이도록)
@@ -2934,8 +3017,8 @@ function selectStatMonth(ym) {
 }
 
 function renderMonthDetail(ym) {
-  const recs     = records.filter(r => r.created_at.startsWith(ym));
-  const approved = recs.filter(r => r.status === 'approved' || r.status === 'paid');
+  const recs     = records.filter(r => r.created_at.startsWith(ym) && isActivity(r)); // (QA #012·#016) 선금·취소 제외
+  const approved = recs.filter(isEarned);
   const walks    = recs.filter(r => r.task_name === 'walk');
   const cleans   = recs.filter(r => r.task_name.startsWith('clean'));
   document.getElementById('detail-money').textContent = formatMoney(approved.reduce((s,r)=>s+r.amount,0));
@@ -2988,16 +3071,16 @@ function searchDateRange() {
     return;
   }
 
-  const approved    = recs.filter(r => r.status === 'approved' || r.status === 'paid');
-  const walks       = recs.filter(r => r.task_name === 'walk');
-  const cleans      = recs.filter(r => r.task_name.startsWith('clean'));
+  const approved    = recs.filter(isEarned);                                   // (QA #012)
+  const walks       = recs.filter(r => r.task_name === 'walk' && isActivity(r)); // (QA #016)
+  const cleans      = recs.filter(r => r.task_name.startsWith('clean') && isActivity(r));
   const customTypes = extractCustomTypes(records);
 
   const summaryItems = [
     { icon: '💰', label: '확정 총액',   value: formatMoney(approved.reduce((s,r)=>s+r.amount,0)) },
     { icon: '🐕', label: '산책 횟수',   value: walks.length + '회' },
     { icon: '🧹', label: '청소 횟수',   value: cleans.length + '회' },
-    ...customTypes.map(ct => ({ icon: ct.icon, label: `${ct.name} 횟수`, value: recs.filter(ct.match).length + '회' }))
+    ...customTypes.map(ct => ({ icon: ct.icon, label: `${ct.name} 횟수`, value: recs.filter(r => ct.match(r) && isActivity(r)).length + '회' }))
   ];
 
   const colorMap  = { pending:'#f59e0b', approved:'#10b981', rejected:'#ef4444', paid:'#a78bfa' };
@@ -3062,9 +3145,12 @@ function dvScrollToPending() {
 }
 
 async function loadDadView() {
-  const { data, error } = await db.from('tasks').select('*').order('created_at', { ascending: false });
-  if (error || !data) return;
-  const recs = data;
+  let data, error;
+  try { ({ data, error } = await db.from('tasks').select('*').order('created_at', { ascending: false })); }
+  catch (e) { error = e; }
+  if (error || !data) { setServerError(true, error); return; } // (QA #011)
+  setServerError(false);
+  const recs = normRecs(data);
   window._dvRecs = recs;
 
   // 선금 현황 렌더
@@ -3076,28 +3162,22 @@ async function loadDadView() {
   document.getElementById('dv-total').textContent         = approved.reduce((s,r)=>s+r.amount,0).toLocaleString() + '원';
   document.getElementById('dv-pending-count').textContent = pending.length + '건';
   // 이번달 확정 금액 (누적 카드 sub 텍스트)
-  const _nowYM = new Date().toISOString().slice(0,7);
-  const _monthApproved = recs.filter(r => (r.status==='approved'||r.status==='paid') && r.created_at.startsWith(_nowYM));
+  const _nowYM = today().slice(0,7);
+  const _monthApproved = recs.filter(r => isEarned(r) && r.created_at.startsWith(_nowYM)); // (QA #012)
   const _monthTotalEl = document.getElementById('dv-month-total-sub');
   if (_monthTotalEl) _monthTotalEl.textContent = '이번달 ' + _monthApproved.reduce((s,r)=>s+r.amount,0).toLocaleString() + '원';
 
-  // 이번 회차: 마지막 수령(paid) 이후 산책/청소 횟수
-  const paidRecs  = recs.filter(r => r.status === 'paid').sort((a,b) => b.created_at.localeCompare(a.created_at));
-  const lastPaid  = paidRecs[0];
-  const sinceDate = lastPaid ? lastPaid.created_at : '1970-01-01';
-  const sinceRecs = recs.filter(r => r.created_at > sinceDate);
+  // 이번 회차: 아직 수령 전인(대기중+확정) 활동
+  // (QA #017) 예전엔 '마지막 수령 기록의 날짜'를 수령일로 착각해서 기준일이 틀렸고,
+  // (QA #016) 취소된 기록까지 횟수·금액에 포함됐음 → 수령 전 상태(pending/approved)만 집계
+  const sinceRecs = recs.filter(r => (r.status === 'pending' || r.status === 'approved') && r.task_name !== 'advance');
   const curWalkRecs  = sinceRecs.filter(r => r.task_name === 'walk');
   const curCleanRecs = sinceRecs.filter(r => r.task_name.startsWith('clean'));
   document.getElementById('dv-cur-walk').textContent        = curWalkRecs.length + '회';
   document.getElementById('dv-cur-walk-money').textContent  = curWalkRecs.reduce((s,r)=>s+r.amount,0).toLocaleString() + '원';
-  document.getElementById('dv-cur-clean').textContent       = curCleanRecs.length + '회';
+  document.getElementById('dv-cur-clean').textContent       = cleanUnits(curCleanRecs) + '개';
   document.getElementById('dv-cur-clean-money').textContent = curCleanRecs.reduce((s,r)=>s+r.amount,0).toLocaleString() + '원';
-  if (lastPaid) {
-    const d = new Date(lastPaid.created_at);
-    document.getElementById('dv-cur-since').textContent = `${d.getMonth()+1}/${d.getDate()} 수령 이후`;
-  } else {
-    document.getElementById('dv-cur-since').textContent = '첫 번째 회차';
-  }
+  document.getElementById('dv-cur-since').textContent = '확정 + 대기중 (수령 전)';
 
   // 커스텀 활동 이번 회차
   const dvCustomTypes = extractCustomTypes(recs);
@@ -3105,7 +3185,7 @@ async function loadDadView() {
     const ctRecs = sinceRecs.filter(ct.match);
     const money  = ctRecs.reduce((s,r) => s + r.amount, 0);
     return `<div class="dv-card" style="text-align:left">
-      <div class="dv-label" style="margin-bottom:8px">${ct.icon} 마지막 수령 이후 ${ct.name}</div>
+      <div class="dv-label" style="margin-bottom:8px">${ct.icon} 수령 전 ${ct.name}</div>
       <div style="display:flex; align-items:baseline; gap:6px; flex-wrap:wrap">
         <span style="font-size:20px; font-weight:800; color:var(--t1); letter-spacing:-0.5px">${ctRecs.length}회</span>
         <span style="font-size:15px; font-weight:700; color:#05D194">${money.toLocaleString()}원</span>
@@ -3158,16 +3238,16 @@ async function loadDadView() {
 }
 
 function renderDadStats(recs) {
-  const todayStr = new Date().toISOString().slice(0,10);
+  const todayStr = today(); // (QA #014) 로컬 날짜
   const nowYM    = todayStr.slice(0,7);
 
   // 커스텀 항목 종류 추출
   const customTypes = extractCustomTypes(recs);
 
   // 오늘 현황
-  const todayRecs   = recs.filter(r => r.created_at.startsWith(todayStr));
+  const todayRecs   = recs.filter(r => r.created_at.startsWith(todayStr) && isActivity(r));
   document.getElementById('dv-today-walk').textContent  = todayRecs.filter(r=>r.task_name==='walk').length + '회';
-  document.getElementById('dv-today-clean').textContent = todayRecs.filter(r=>r.task_name.startsWith('clean')).length + '회';
+  document.getElementById('dv-today-clean').textContent = cleanUnits(todayRecs.filter(r=>r.task_name.startsWith('clean'))) + '개';
   document.getElementById('dv-today-custom').innerHTML = customTypes.map(ct => `
     <div class="dv-today-item">
       <div class="dt-icon">${ct.icon}</div>
@@ -3176,8 +3256,8 @@ function renderDadStats(recs) {
     </div>`).join('');
 
   // 이번달 요약
-  const monthRecs = recs.filter(r => r.created_at.startsWith(nowYM));
-  const mApproved = monthRecs.filter(r => r.status==='approved'||r.status==='paid');
+  const monthRecs = recs.filter(r => r.created_at.startsWith(nowYM) && isActivity(r)); // (QA #012·#016) 선금·취소 제외
+  const mApproved = monthRecs.filter(isEarned);
   const mPending  = monthRecs.filter(r => r.status==='pending');
   const mWalks    = monthRecs.filter(r => r.task_name==='walk');
   const mCleans   = monthRecs.filter(r => r.task_name.startsWith('clean'));
@@ -3204,10 +3284,10 @@ function renderDadStats(recs) {
     months.push(localYM(d));
   }
   const labels      = months.map(m => parseInt(m.split('-')[1]) + '월');
-  const monthMoney  = months.map(m => recs.filter(r=>r.created_at.startsWith(m)&&(r.status==='approved'||r.status==='paid')).reduce((s,r)=>s+r.amount,0));
-  const monthWalks  = months.map(m => recs.filter(r=>r.created_at.startsWith(m)&&r.task_name==='walk').length);
-  const monthCleans = months.map(m => recs.filter(r=>r.created_at.startsWith(m)&&r.task_name.startsWith('clean')).length);
-  const monthCustom = customTypes.map(ct => months.map(m => recs.filter(r => r.created_at.startsWith(m) && ct.match(r)).length));
+  const monthMoney  = months.map(m => recs.filter(r=>r.created_at.startsWith(m)&&isEarned(r)).reduce((s,r)=>s+r.amount,0)); // (QA #012) 메인 차트와 같은 기준
+  const monthWalks  = months.map(m => recs.filter(r=>r.created_at.startsWith(m)&&isActivity(r)&&r.task_name==='walk').length);
+  const monthCleans = months.map(m => recs.filter(r=>r.created_at.startsWith(m)&&isActivity(r)&&r.task_name.startsWith('clean')).length);
+  const monthCustom = customTypes.map(ct => months.map(m => recs.filter(r => r.created_at.startsWith(m) && isActivity(r) && ct.match(r)).length));
 
   // 다크모드 색상
   const isDark        = document.body.classList.contains('dark');
@@ -3360,6 +3440,7 @@ function saveCustomItem() {
   localStorage.setItem('hodong_settings', JSON.stringify(settings));
   closeCustomItemModal();
   render();
+  pushServerAppPrefs({ custom_items: items }); // (QA #013)
   showToast('✅ 활동이 저장됐어요!');
 }
 
@@ -3370,6 +3451,7 @@ function deleteCustomItem() {
     localStorage.setItem('hodong_settings', JSON.stringify(settings));
     closeCustomItemModal();
     render();
+    pushServerAppPrefs({ custom_items: settings.customItems }); // (QA #013)
     showToast('🗑️ 삭제했어요');
   });
 }
@@ -3399,7 +3481,7 @@ function savePrices() {
   settings.cleanPrice = cp;
   localStorage.setItem('hodong_settings', JSON.stringify(settings));
   render();
-  showToast('✅ 금액 설정 저장됐어요!');
+  pushServerAppPrefs({ walk_price: wp, clean_price: cp }).then(ok => showToast(ok ? '✅ 금액 설정 저장됐어요! (모든 기기에 적용)' : '✅ 이 기기에 저장됐어요 (서버 저장 실패)'));
 }
 
 // ── 아빠 링크 복사 ──
@@ -3423,6 +3505,16 @@ function renderNotifications() {
   const iconMap = { approved:'✅', rejected:'❌', paid:'💜' };
   const msgMap  = { approved:'아빠가 확인했어요! 용돈이 확정됐어요', rejected:'아빠가 취소했어요', paid:'용돈을 수령했어요' };
   const colorMap2 = { approved:'approved', rejected:'rejected', paid:'paid' };
+  // (QA #020) 기록 종류에 맞는 문구 — 직접 취소/선금을 '아빠가 취소'·'용돈 수령'으로 잘못 표시하던 문제
+  const titleOf = r => {
+    if (isSelfCancel(r)) return '내가 직접 취소했어요';
+    if (r.task_name === 'advance') {
+      if (r.status === 'approved') return '아빠가 선금을 지급했어요';
+      if (r.status === 'paid')     return '선금 상환이 끝났어요';
+      if (r.status === 'rejected') return '아빠가 선금 요청을 거절했어요';
+    }
+    return msgMap[r.status];
+  };
   el.innerHTML = notifs.map(r => {
     const { label } = parseTask(r);
     const reason = r.cancel_reason ? `<br><span style="color:var(--red);font-size:10px">사유: ${r.cancel_reason}</span>` : '';
@@ -3430,7 +3522,7 @@ function renderNotifications() {
       <div class="notif-item">
         <div class="notif-dot ${r.status}">${iconMap[r.status]}</div>
         <div class="notif-body">
-          <div class="notif-title">${msgMap[r.status]}</div>
+          <div class="notif-title">${titleOf(r)}</div>
           <div class="notif-sub">${label} · ${formatDate(r.created_at)}${reason}</div>
         </div>
         <div class="notif-money ${colorMap2[r.status]}">${formatMoney(r.amount)}</div>
@@ -3456,12 +3548,17 @@ function closeAmountModal() {
 async function confirmAmountEdit() {
   const newAmount = parseInt(document.getElementById('amount-input').value);
   if (!newAmount || newAmount <= 0) { showToast('❌ 올바른 금액을 입력하세요'); return; }
+  const target = records.find(r => r.id == editingId);
+  if (!target || target.status !== 'pending') { showToast('🔒 대기중인 기록만 수정할 수 있어요'); closeAmountModal(); return; }
+  const oldAmount = target.amount;
   const { error } = await db.from('tasks').update({ amount: newAmount }).eq('id', editingId);
   if (error) { showToast('❌ 수정 실패: ' + error.message); return; }
   records = records.map(r => r.id == editingId ? { ...r, amount: newAmount } : r);
   closeAmountModal();
   render();
-  showToast('✅ 금액 수정 완료!');
+  // (QA #019) 아빠 몰래 금액이 바뀌지 않도록, 수정 내역을 아빠에게 카톡으로 다시 알림
+  if (oldAmount !== newAmount) sendKakaoMessage(records.find(r => r.id == target.id), `✏️ 금액 수정: ${formatMoney(oldAmount)} → ${formatMoney(newAmount)}`);
+  showToast('✅ 금액 수정 완료! 아빠한테 알림 전송중...');
 }
 document.getElementById('amount-modal').addEventListener('click', function(e) {
   if (e.target === this) closeAmountModal();
@@ -3497,7 +3594,7 @@ function getWeekRange(offset) {
   mon.setDate(d.getDate() - (day === 0 ? 6 : day - 1) + offset * 7);
   const sun = new Date(mon);
   sun.setDate(mon.getDate() + 6);
-  return { start: mon.toISOString().slice(0,10), end: sun.toISOString().slice(0,10) };
+  return { start: localDateStr(mon), end: localDateStr(sun) };
 }
 
 function renderWeekCompare() {
@@ -3511,12 +3608,12 @@ function renderWeekCompare() {
   const twRecs = records.filter(r => inRange(r, tw));
   const lwRecs = records.filter(r => inRange(r, lw));
 
-  const twWalk  = twRecs.filter(r => r.task_name === 'walk').length;
-  const lwWalk  = lwRecs.filter(r => r.task_name === 'walk').length;
-  const twClean = twRecs.filter(r => r.task_name.startsWith('clean')).length;
-  const lwClean = lwRecs.filter(r => r.task_name.startsWith('clean')).length;
-  const twMoney = twRecs.filter(r => r.status === 'approved' || r.status === 'paid').reduce((s,r)=>s+r.amount,0);
-  const lwMoney = lwRecs.filter(r => r.status === 'approved' || r.status === 'paid').reduce((s,r)=>s+r.amount,0);
+  const twWalk  = twRecs.filter(r => r.task_name === 'walk' && isActivity(r)).length;
+  const lwWalk  = lwRecs.filter(r => r.task_name === 'walk' && isActivity(r)).length;
+  const twClean = cleanUnits(twRecs.filter(r => r.task_name.startsWith('clean') && isActivity(r)));
+  const lwClean = cleanUnits(lwRecs.filter(r => r.task_name.startsWith('clean') && isActivity(r)));
+  const twMoney = twRecs.filter(isEarned).reduce((s,r)=>s+r.amount,0); // (QA #012) 선금 제외
+  const lwMoney = lwRecs.filter(isEarned).reduce((s,r)=>s+r.amount,0);
 
   // 이번주·지난주 모두 기록이 없으면 "0 vs 0 — 동일"을 세 줄 반복하는 대신 안내 문구로 대체
   if (twRecs.length === 0 && lwRecs.length === 0) {
@@ -3544,7 +3641,7 @@ function renderWeekCompare() {
       </div>
       <div class="wc-item">
         <div class="wc-label">🧹 청소</div>
-        <div class="wc-row"><span class="wc-this">${twClean}회</span><span class="wc-last">${lwClean}회</span></div>
+        <div class="wc-row"><span class="wc-this">${twClean}개</span><span class="wc-last">${lwClean}개</span></div>
         ${diffHtml(twClean, lwClean, false)}
       </div>
       <div class="wc-item">
@@ -3561,7 +3658,7 @@ function renderReceiptHistory() {
   const el = document.getElementById('receipt-section');
   if (!el) return;
   // paid 상태 기록을 날짜별로 그룹
-  const paidRecs = records.filter(r => r.status === 'paid');
+  const paidRecs = records.filter(r => r.status === 'paid' && r.task_name !== 'advance'); // (QA #012) 선금 상환 기록은 '번 돈'이 아님
   if (paidRecs.length === 0) { el.innerHTML = ''; return; }
 
   // 월별로 그룹
@@ -3616,11 +3713,13 @@ async function _execCancelPending() {
   const id = _cancelPendingId;
   const reason = document.getElementById('cancel-reason-input').value.trim();
   closeCancelReasonModal();
+  // (QA #020) 아빠 거절과 구분되도록 '직접 취소' 접두어를 붙여 저장
+  const savedReason = reason ? `직접 취소: ${reason}` : '직접 취소';
   const { error } = await db.from('tasks')
-    .update({ status: 'rejected', cancel_reason: reason || '직접 취소' })
+    .update({ status: 'rejected', cancel_reason: savedReason })
     .eq('id', id);
   if (error) { showToast('❌ 오류: ' + error.message); return; }
-  records = records.map(r => r.id == id ? { ...r, status: 'rejected', cancel_reason: reason || '직접 취소' } : r);
+  records = records.map(r => r.id == id ? { ...r, status: 'rejected', cancel_reason: savedReason } : r);
   render();
   showToast('✅ 취소 완료');
 }
@@ -3692,8 +3791,13 @@ function renderCalendar() {
 }
 
 // ── 개별 항목 삭제 ──
+// (QA #018) 호동이 화면에서는 '대기중'·'취소됨' 기록만 삭제 가능.
+// 확정·수령완료 기록과 지급된 선금(빚)은 삭제 불가 — 정산 기록이 사라지는 걸 막음.
+function canDelete(r) { return r && (r.status === 'pending' || r.status === 'rejected'); }
 function deleteRecord(id) {
-  showActionConfirm('🗑️', '이 내역을 삭제할까요?', '삭제하면 복구가 안돼요', () => _execDeleteRecord(id));
+  const r = records.find(x => x.id == id);
+  if (!canDelete(r)) { showToast('🔒 확정·수령된 기록은 삭제할 수 없어요'); return; }
+  showActionConfirm('🗑️', '이 내역을 삭제할까요?', '삭제하면 복구가 안돼요', () => _execDeleteRecord(id), '삭제하기');
 }
 async function _execDeleteRecord(id) {
   const { error } = await db.from('tasks').delete().eq('id', id);
@@ -3742,6 +3846,7 @@ function receiveAllowance() {
       if (e1 || e2) { showToast('❌ 오류 발생. 다시 시도해주세요'); return; }
       records = records.map(r => [...ids, ...advIds].includes(r.id) ? { ...r, status: 'paid' } : r);
       render();
+      loadRecords();
       const msg = surplus > 0
         ? `💜 선금 상환 완료! ${formatMoney(surplus)} 수령했어요`
         : '💴 선금 완전 상환 완료! 수고했어요 🎉';
@@ -3772,8 +3877,9 @@ function receiveAllowance() {
         }).select().single();
         if (e3) { showToast('❌ 잔액 이월 실패: ' + e3.message); return; }
         records = records.map(r => [...ids, ...advIds].includes(r.id) ? { ...r, status: 'paid' } : r);
-        records.unshift(newAdv);
+        records.unshift(normRec(newAdv));
         render();
+        loadRecords();
         showToast(`💴 ${formatMoney(earned)} 상환! 남은 선금 ${formatMoney(remaining)}`);
       });
   }
@@ -3808,7 +3914,14 @@ function renderAdvanceBanner(advanceOwed, earnedBalance) {
 
   if (advanceOwed <= 0) {
     el.style.display = 'none';
-    if (reqBtn) reqBtn.style.display = '';
+    if (reqBtn) {
+      reqBtn.style.display = '';
+      // (QA #022) 요청이 대기 중이면 버튼을 잠가 중복 요청 방지
+      const hasPendingReq = records.some(r => r.task_name === 'advance' && r.status === 'pending');
+      reqBtn.disabled = hasPendingReq;
+      reqBtn.style.opacity = hasPendingReq ? '0.55' : '';
+      reqBtn.innerHTML = hasPendingReq ? '⏳ 선금 요청 승인 대기 중' : '💴 선금(가불) 요청하기';
+    }
     return;
   }
 
@@ -3901,6 +4014,9 @@ async function submitAdvanceRequest() {
   const amt  = parseInt(document.getElementById('advance-req-amount').value.replace(/[^0-9]/g,''));
   const note = document.getElementById('advance-req-note').value.trim();
   if (!amt || amt <= 0) { showToast('❌ 요청 금액을 입력하세요'); return; }
+  if (records.some(r => r.task_name === 'advance' && r.status === 'pending')) { // (QA #022)
+    showToast('⏳ 이미 승인 대기 중인 선금 요청이 있어요'); closeAdvanceRequestModal(); return;
+  }
 
   const { data, error } = await db.from('tasks').insert({
     task_name: 'advance',
@@ -3910,7 +4026,7 @@ async function submitAdvanceRequest() {
   }).select().single();
 
   if (error) { showToast('❌ 요청 실패: ' + error.message); return; }
-  records.unshift(data);
+  records.unshift(normRec(data));
   closeAdvanceRequestModal();
   render();
   _sendAdvanceKakao(data);
